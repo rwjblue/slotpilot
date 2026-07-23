@@ -15,7 +15,7 @@ use std::{
     },
 };
 
-use fs2::FileExt;
+use fs2::{FileExt, lock_contended_error};
 #[cfg(unix)]
 use interprocess::local_socket::GenericFilePath;
 #[cfg(windows)]
@@ -147,12 +147,13 @@ impl LocalServer {
     /// Claims and binds one local endpoint.
     pub fn bind(address: &EndpointAddress) -> Result<Self, IpcError> {
         let ownership = open_lock(&address.lock_path)?;
-        ownership
-            .try_lock_exclusive()
-            .map_err(|error| match error.kind() {
-                io::ErrorKind::WouldBlock => IpcError::EndpointActive,
-                _ => IpcError::Io(error),
-            })?;
+        ownership.try_lock_exclusive().map_err(|error| {
+            if error.raw_os_error() == lock_contended_error().raw_os_error() {
+                IpcError::EndpointActive
+            } else {
+                IpcError::Io(error)
+            }
+        })?;
 
         #[cfg(unix)]
         if let EndpointKind::UnixSocket(path) = &address.kind
