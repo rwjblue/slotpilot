@@ -16,6 +16,8 @@ publish = false
 
 [workspace.dependencies]
 anyhow = "1.0.104"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
 slotpilot-api = { path = "crates/api" }
 slotpilot-domain = { path = "crates/domain" }
 thiserror = "2.0.19"

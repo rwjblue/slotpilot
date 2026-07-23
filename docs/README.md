@@ -8,6 +8,7 @@ This directory is the durable design record for the project.
 - [`product.md`](product.md): intended operating experience and policy behavior.
 - [`requirements.md`](requirements.md): numbered functional, safety, and non-functional requirements.
 - [`profiles.md`](profiles.md): operator, station, activation, rig, audio, and operating profiles.
+- [`domain.md`](domain.md): stable identifiers, callsigns, radio values, and UTC-slot invariants.
 - [`hardware-support.md`](hardware-support.md): initial radio targets and validation expectations.
 
 ## Engineering
