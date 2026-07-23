@@ -1,0 +1,25 @@
+[package]
+name = "slotpilot-ipc"
+description = "User-scoped local transport for SlotPilot API messages"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+fs2.workspace = true
+interprocess.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+slotpilot-api.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+widestring.workspace = true
+
+[lints]
+workspace = true

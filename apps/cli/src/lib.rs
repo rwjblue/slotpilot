@@ -1,9 +1,28 @@
 //! Rendering boundary for the SlotPilot command-line client.
 //!
-//! Table and JSON output consume the same typed API response. Transport and
-//! command-line parsing remain deferred to the local-IPC issue.
+//! Table and JSON output consume the same typed API response. Snapshot requests
+//! use the shared user-scoped local transport.
 
 use slotpilot_api::{ResponseEnvelope, ResponseOutcome, ResultBody};
+use slotpilot_domain::RequestId;
+use slotpilot_ipc::{CancellationToken, EndpointAddress, IpcError, LocalClient};
+
+/// Requests the bounded no-op snapshot through the shared local transport.
+pub fn request_snapshot(
+    address: &EndpointAddress,
+    request_id: RequestId,
+    cancellation: &CancellationToken,
+) -> Result<ResponseEnvelope, IpcError> {
+    LocalClient::request(
+        address,
+        &slotpilot_api::CommandEnvelope {
+            api_version: slotpilot_api::API_VERSION,
+            request_id,
+            command: slotpilot_api::Command::GetSnapshot,
+        },
+        cancellation,
+    )
+}
 
 /// Renders one bounded API response as JSON.
 pub fn render_json(response: &ResponseEnvelope) -> serde_json::Result<String> {
@@ -47,9 +66,17 @@ pub fn render_table(response: &ResponseEnvelope) -> String {
 
 #[cfg(test)]
 mod tests {
-    use slotpilot_api::{
-        API_VERSION, Command, CommandEnvelope, NoopService, ResponseOutcome, ResultBody,
+    use std::{
+        fs,
+        sync::atomic::{AtomicU64, Ordering},
+        thread,
     };
+
+    use slotpilot_api::{
+        API_VERSION, Command, CommandEnvelope, NoopService, OperationState, ResponseOutcome,
+        ResultBody,
+    };
+    use slotpilot_ipc::LocalServer;
 
     use super::*;
 
@@ -71,5 +98,38 @@ mod tests {
                 .unwrap()
                 .contains(r#""configuration":"not_configured""#)
         );
+    }
+
+    #[test]
+    fn cli_snapshot_path_uses_local_transport() {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "slotpilot-cli-ipc-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let address = EndpointAddress::for_user(&directory, "cli_test").unwrap();
+        let server = LocalServer::bind(&address).unwrap();
+        let handle = thread::spawn(move || {
+            server
+                .serve_once(
+                    &NoopService::new("svc_01jabcde9".parse().unwrap()),
+                    &CancellationToken::new(),
+                )
+                .unwrap();
+        });
+        let response = request_snapshot(
+            &address,
+            "req_01jabcde9".parse().unwrap(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        handle.join().unwrap();
+        assert!(matches!(
+            response.outcome,
+            ResponseOutcome::Success(ResultBody::Snapshot(snapshot))
+                if snapshot.operation == OperationState::NotRunning
+        ));
+        fs::remove_dir_all(directory).unwrap();
     }
 }

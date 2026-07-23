@@ -11,6 +11,7 @@ use slotpilot_api::{
     ErrorDetails, NoopService, ResponseEnvelope, ResponseOutcome, ResultBody,
 };
 use slotpilot_domain::{CommandId, RequestId, ServiceInstanceId};
+use slotpilot_ipc::{CancellationToken, IpcError, LocalServer};
 use slotpilot_storage::{AcceptOutcome, AcceptedCommand, StorageError, Store};
 use thiserror::Error;
 
@@ -32,6 +33,18 @@ pub enum ProcessorError {
 pub struct CommandProcessor {
     service: NoopService,
     store: Store,
+}
+
+/// Serves one read-only no-op API exchange through the local endpoint.
+///
+/// This handshake path cannot grant authority or produce a station side
+/// effect.
+pub fn serve_noop_once(
+    server: &LocalServer,
+    service_instance_id: ServiceInstanceId,
+    cancellation: &CancellationToken,
+) -> Result<(), IpcError> {
+    server.serve_once(&NoopService::new(service_instance_id), cancellation)
 }
 
 impl CommandProcessor {

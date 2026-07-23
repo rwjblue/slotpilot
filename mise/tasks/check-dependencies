@@ -35,6 +35,7 @@ assert_workspace_dependencies() {
 expected_packages="slotpilot
 slotpilot-api
 slotpilot-domain
+slotpilot-ipc
 slotpilot-operations
 slotpilot-storage
 slotpilot-testkit
@@ -58,6 +59,7 @@ if [[ "${actual_packages}" != "${expected_packages}" ]]; then
 fi
 
 assert_workspace_dependencies "slotpilot-domain" ""
+assert_workspace_dependencies "slotpilot-ipc" "slotpilot-api"
 assert_workspace_dependencies "slotpilot-operations" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-storage" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-testkit" "slotpilot-domain
@@ -65,5 +67,8 @@ slotpilot-operations"
 assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
 assert_workspace_dependencies "slotpilotd" "slotpilot-api
 slotpilot-domain
+slotpilot-ipc
 slotpilot-storage"
-assert_workspace_dependencies "slotpilot" "slotpilot-api"
+assert_workspace_dependencies "slotpilot" "slotpilot-api
+slotpilot-domain
+slotpilot-ipc"

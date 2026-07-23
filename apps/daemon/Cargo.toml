@@ -12,6 +12,7 @@ anyhow.workspace = true
 serde_json.workspace = true
 slotpilot-api.workspace = true
 slotpilot-domain.workspace = true
+slotpilot-ipc.workspace = true
 slotpilot-storage.workspace = true
 thiserror.workspace = true
 

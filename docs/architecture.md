@@ -62,14 +62,17 @@ apps/
   desktop/        native desktop client
 ```
 
-The bootstrapped workspace contains `domain`, `api`, `operations`, `storage`,
-`testkit`, `slotpilotd`, and `slotpilot`. Their allowed internal dependency
+The bootstrapped workspace contains `domain`, `api`, `ipc`, `operations`,
+`storage`, `testkit`, `slotpilotd`, and `slotpilot`. Their allowed internal dependency
 graph is:
 
 ```text
 slotpilotd ─┐
             ├──> api ──> domain
 slotpilot  ─┘
+
+slotpilotd ─┐
+slotpilot  ─┴──> ipc ──> api
 
 operations ──> domain
 testkit ─────> operations ──> domain
