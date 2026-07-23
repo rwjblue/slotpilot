@@ -42,8 +42,9 @@ impl Ft8ReceiveSlot {
 
 impl Ft8ReceiveWindow {
     /// Returns the exact typed slot identity carried by this window.
-    pub fn slot(&self) -> Result<Ft8ReceiveSlot, ReceiveTimelineError> {
-        Ft8ReceiveSlot::new(self.slot_start_utc_millis)
+    #[must_use]
+    pub const fn slot(&self) -> Ft8ReceiveSlot {
+        Ft8ReceiveSlot(self.slot_start_utc_millis)
     }
 }
 

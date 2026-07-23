@@ -239,6 +239,18 @@ access, logging sinks, or client/GUI locks. The queue implementation review is
 
 The slot clock samples UTC and monotonic time together, calculates future protocol boundaries, and schedules against monotonic deadlines. It periodically checks the mapping and exposes clock health.
 
+The production receive sampler scopes its monotonic origin to an explicit
+non-zero process generation. It brackets each UTC read with monotonic reads
+and retains their midpoint in integer milliseconds. The receive monitor
+publishes owned snapshots/transitions, a monotonic next-sample due instant, and
+latched typed failures for delay, staleness, forward/backward UTC jumps,
+timeline regression, suspend/resume-like gaps, and window misalignment.
+Unhealthy time converts a complete timeline window into a rejected diagnostic;
+it can never return a decoder-ready window. Recovery requires three consecutive
+consistent samples and emits an explicit recovered transition. A process
+generation change requires a new monitor. Policy details are in
+[`receive-clock.md`](receive-clock.md).
+
 Median decoded `DT` may inform diagnostics but does not independently grant transmit authority.
 
 All time-dependent operations receive an injected clock abstraction. Tests must be able to advance slots without sleeping in real time.

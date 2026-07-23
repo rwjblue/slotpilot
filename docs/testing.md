@@ -35,6 +35,14 @@ unhealthy state when UTC and monotonic progress diverge beyond its configured
 tolerance. `VirtualClock` advances explicitly and can inject UTC-only jumps;
 it never sleeps and does not schedule work or grant authority.
 
+The Phase 2 receive monitor adds explicit process generation, 1,000 ms sample
+cadence, 2,500 ms freshness, 5,000 ms gap, 100 ms mapping tolerance, 250 ms
+sampling-delay tolerance, and three-sample recovery. Virtual-time tests cover
+exact FT8 alignment, forward/backward UTC jumps, monotonic regression,
+scheduler delay, suspend/resume-like gaps, stale mappings, process restart,
+window misalignment, and visible recovery. Its gate cannot return a
+decoder-ready window while unhealthy.
+
 ### Protocol fixtures
 
 Maintain reviewed fixtures for:

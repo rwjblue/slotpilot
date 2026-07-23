@@ -21,10 +21,12 @@ All clients use the same versioned command/event API. No capability should exist
 > identities, and the library adapter can open only an explicitly selected
 > input into a bounded real-time-safe queue. Pure worker-side processing can
 > deterministically align and resample those owned batches into canonical FT8
-> windows, but it is not yet composed into the daemon and performs no live
-> decode. No audio output, radio, PTT, logging, transmit, WSPR, or desktop
-> behavior is available; live station capability remains unavailable. Do not
-> treat the repository or its unsigned local artifacts as safe for on-air use.
+> windows. A receive-only clock gate rejects stale, jumped, delayed, or
+> misaligned mappings, but these pieces are not yet composed into the daemon
+> and perform no live decode. No audio output, radio, PTT, logging, transmit,
+> WSPR, or desktop behavior is available; live station capability remains
+> unavailable. Do not treat the repository or its unsigned local artifacts as
+> safe for on-air use.
 
 ## Product direction
 

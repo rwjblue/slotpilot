@@ -20,6 +20,7 @@ This directory is the durable design record for the project.
 - [`storage.md`](storage.md): Phase 0 SQLite schema, migration, and deferred-field contract.
 - [`ipc.md`](ipc.md): user-scoped local transport, framing, permissions, and recovery.
 - [`audio-timeline.md`](audio-timeline.md): deterministic receive resampling, slot alignment, tolerances, and fail-closed reset semantics.
+- [`receive-clock.md`](receive-clock.md): production UTC/monotonic sampling, receive health latch, alignment gate, and recovery semantics.
 - [`development-release.md`](development-release.md): pinned setup, no-op handshake, and unsigned local artifacts.
 - [`dependencies/mfsk-core-0.7.4.md`](dependencies/mfsk-core-0.7.4.md): exact offline FT8 dependency review and upgrade procedure.
 - [`dependencies/cpal-0.18.1.md`](dependencies/cpal-0.18.1.md): exact receive-audio dependency, stable-identity, platform, and upgrade review.
