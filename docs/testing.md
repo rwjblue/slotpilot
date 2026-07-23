@@ -234,6 +234,13 @@ injection proves decode/event atomicity: invalid publication rolls back the
 receive row, exact retry reuses both sequences, and no event can precede its
 committed evidence.
 
+The complete Phase 2 software matrix and the mechanical audit run by
+`mise run check-phase2-receive` are recorded in
+[`phase2-software-conformance.md`](phase2-software-conformance.md). The
+remaining human-required macOS check follows
+[`validation/phase2-macos-input.md`](validation/phase2-macos-input.md) against
+the exact landed, green revision and uses RF-free known audio or loopback only.
+
 ### Fault injection
 
 Every transmit-related subsystem needs focused tests for faults at each boundary before, during, and after PTT. The expected result is explicit inhibition, immediate stop, recoverable state, or retained diagnostics—not an implicit hang.
@@ -248,8 +255,7 @@ Ordinary CI runs the repository-owned `mise run ci` gate on:
 - the repository's exact Rust toolchain pin;
 - formatting, lint, unit, integration, fixture, and schema tests.
 
-The initial compile-only workspace has no fixture, schema, audio, or IPC tests;
-focused issues add those layers to the same gate as their behavior appears.
+The workspace includes fixture, schema, audio, and IPC tests in that same gate.
 Audio and IPC adapters receive platform-specific tests. Hardware tests are
 separate and manually authorized.
 

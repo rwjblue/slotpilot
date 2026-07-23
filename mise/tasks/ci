@@ -6,5 +6,6 @@ set -euo pipefail
 mise run check
 mise run check-compatibility
 mise run check-dependencies
+mise run check-phase2-receive
 mise run check-docs
 mise run check-ci

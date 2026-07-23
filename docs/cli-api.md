@@ -273,6 +273,11 @@ typed event envelope per line; non-event cursor outcomes emit one response
 value. Event follow obtains a coherent snapshot first and uses its daemon
 generation, so it cannot silently continue a stale cursor after restart.
 
+Phase 2 software conformance drives these routes through the local transport
+against replayed input and checks that human, JSON, and JSONL output retain the
+same typed values. Physical input remains the separate human-required protocol
+in [`validation/phase2-macos-input.md`](validation/phase2-macos-input.md).
+
 ## Example FT8 run
 
 ```text

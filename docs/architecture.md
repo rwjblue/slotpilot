@@ -274,6 +274,12 @@ transaction as its schema-v2 record, so ordered replay cannot claim an
 uncommitted decode. API/CLI types import no private audio, FFT, SQLite, or FT8
 dependency values.
 
+The hardware-free cross-boundary proof composes a replay input, the real
+timeline/clock/decode/storage path, a bounded waterfall event, API version 2,
+the CLI renderers, and local IPC in one test. The complete matrix and static
+surface audit are recorded in
+[`phase2-software-conformance.md`](phase2-software-conformance.md).
+
 ## Time boundary
 
 The slot clock samples UTC and monotonic time together, calculates future protocol boundaries, and schedules against monotonic deadlines. It periodically checks the mapping and exposes clock health.

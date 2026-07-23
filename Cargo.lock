@@ -988,6 +988,7 @@ dependencies = [
  "anyhow",
  "serde_json",
  "sha2",
+ "slotpilot",
  "slotpilot-api",
  "slotpilot-audio",
  "slotpilot-domain",

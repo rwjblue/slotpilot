@@ -81,3 +81,8 @@ credentials, live arm token, transmit authority, resumable PTT state, or
 hardware access. Later migrations must preserve these fail-closed recovery
 rules unless a focused issue and accepted safety decision explicitly change
 them.
+
+The Phase 2 closeout replays this transaction through the daemon API, CLI
+client library, and local IPC, then reads the committed history and ordered
+decode event. The complete evidence matrix is
+[`phase2-software-conformance.md`](phase2-software-conformance.md).

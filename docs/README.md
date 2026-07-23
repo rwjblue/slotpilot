@@ -22,7 +22,9 @@ This directory is the durable design record for the project.
 - [`audio-timeline.md`](audio-timeline.md): deterministic receive resampling, slot alignment, tolerances, and fail-closed reset semantics.
 - [`receive-clock.md`](receive-clock.md): production UTC/monotonic sampling, receive health latch, alignment gate, and recovery semantics.
 - [`live-receive.md`](live-receive.md): daemon-owned receive lifecycle, bounded worker composition, persistence, and API boundary.
+- [`phase2-software-conformance.md`](phase2-software-conformance.md): receive-only software closeout matrix and remaining human boundary.
 - [`spectrum-waterfall.md`](spectrum-waterfall.md): bounded receive FFT, owned bin/row units, reset metadata, and publication coalescing.
+- [`validation/phase2-macos-input.md`](validation/phase2-macos-input.md): exact RF-free macOS input validation protocol for human-required issue #36.
 - [`development-release.md`](development-release.md): pinned setup, no-op handshake, and unsigned local artifacts.
 - [`dependencies/mfsk-core-0.7.4.md`](dependencies/mfsk-core-0.7.4.md): exact offline FT8 dependency review and upgrade procedure.
 - [`dependencies/cpal-0.18.1.md`](dependencies/cpal-0.18.1.md): exact receive-audio dependency, stable-identity, platform, and upgrade review.

@@ -74,10 +74,13 @@ When explicitly handed a GitHub issue:
 
 ## Current repository state
 
-Phases 0 and 1 are complete. Phase 2 has begun with owned receive-only audio
-contracts, deterministic fakes, stable input-device discovery, and an isolated
-exact-device input stream feeding a bounded real-time-safe queue. Capture is
-not yet composed into the daemon or a live decode path. A pure bounded
+Phases 0 and 1 are complete. The Phase 2 receive-only software boundary is
+complete, while the phase remains open for human-required RF-free macOS input
+validation. It includes owned audio contracts, deterministic fakes, stable
+input-device discovery, and an isolated exact-device input stream feeding a
+bounded real-time-safe queue. `slotpilotd` composes that input through
+worker-side clock gating, canonical FT8 windows, decode, atomic persistence,
+ordered events, and explicit inactive-by-default lifecycle control. A pure bounded
 fixed-point timeline can align and resample owned batches into canonical FT8
 windows while failing closed on discontinuity and timing uncertainty. A
 production UTC/monotonic sampler and receive clock gate latch unhealthy time,
@@ -88,15 +91,17 @@ visible reset metadata; it has no renderer or public schema. SQLite schema
 version 2 atomically stores bounded receive-window context, diagnostics, and
 exact owned FT8 classifications with idempotent identity and bounded queries;
 it stores no raw PCM or waterfall rows.
-The repository has a development-only no-op
-daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
-and hardware test seams, initial SQLite durability, and the complete repository
-gate. `slotpilot-protocol` also has a bounded offline FT8-only harness:
+API version 2 and the CLI expose bounded input discovery, start/stop, status,
+history, receive events, waterfall events, and JSON/JSONL views through local
+IPC. The repository also retains the development no-op handshake,
+deterministic time and hardware test seams, and the complete repository gate.
+`slotpilot-protocol` has a bounded offline FT8-only harness:
 SlotPilot-owned message outcomes, an exact private dependency adapter, reviewed
 fixtures, deterministic in-memory PCM synthesis, bounded RIFF/WAVE parsing,
-and reproducible static-recording decode. There is deliberately no live
-station FT8 command/event path, WSPR protocol, audio output, rig-control,
-logging, transmit, or desktop behavior. Do not create broad speculative
+and reproducible static-recording decode. There is deliberately no WSPR
+protocol, audio output, rig-control, logging, transmit, or desktop behavior.
+Ordinary tests open no physical input; issue #36 is the separate
+human-required validation boundary. Do not create broad speculative
 implementations in an orientation task.
 
 An implementation pull request should be narrow, reviewable, and tied to one

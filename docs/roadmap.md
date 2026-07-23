@@ -31,7 +31,8 @@ requirements.
 ## Current status
 
 **Phase 0: workspace and contracts — complete. Phase 1: offline FT8 protocol
-harness — complete. Phase 2 receive-only software work is in progress.**
+harness — complete. Phase 2 receive-only software — complete; human RF-free
+macOS input validation remains open.**
 
 The repository contains the no-op daemon/CLI handshake, typed contracts,
 deterministic test seams, local IPC, initial storage, and complete CI
@@ -108,7 +109,8 @@ WSPR without exposing dependency types or replacing client contracts.
 
 ## Phase 2 — receive-only FT8 station
 
-Status: not started and not authorized by Phase 1 completion.
+Status: software complete; human-required RF-free macOS input validation
+remains open, so the phase is not complete.
 
 Goal: observe live FT8 safely through portable audio and time boundaries.
 
@@ -132,11 +134,14 @@ Exit criteria:
 
 WSPR live receive is deferred to Phase 8.
 
-Phase 2 software implementation is in progress. The daemon now has an internal,
+Phase 2 software implementation is complete. The daemon has an internal,
 receive-only composition of exact input ownership, bounded worker processing,
 clock-gated live FT8 decode, typed lifecycle and fault handling, and schema-v2
-persistence, plus versioned API/CLI observation and control. The
-human-required physical input validation remains separate work.
+persistence, plus versioned API/CLI observation and control. The software
+conformance matrix is recorded in
+[`phase2-software-conformance.md`](phase2-software-conformance.md). The exact
+RF-free protocol for human-required issue #36 is
+[`validation/phase2-macos-input.md`](validation/phase2-macos-input.md).
 
 Phase 2 entry was reviewed at the Phase 1 closeout. Its required boundaries are
 already explicit: daemon-only hardware ownership, portable stable input-device
@@ -145,8 +150,8 @@ resampling and timestamped window alignment, clock-health diagnostics,
 receive-only API/CLI events and persistence, device-loss failure without
 fallback, and no transmit path. No additional product, safety, licensing,
 wire-schema, durable-schema, or architecture decision was discovered during
-Phase 1. Implementation still requires an approved tracker and focused issues;
-this review creates no authorization or readiness label.
+Phase 1. Phase 3 remains separately authorized work and must not begin merely
+because the Phase 2 software boundary is complete.
 
 ## Phase 3 — primary rig profile and read-only control
 

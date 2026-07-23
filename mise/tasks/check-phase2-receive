@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+#MISE description="Audit the complete Phase 2 receive-only software boundary"
+
+set -euo pipefail
+
+for required in \
+  'pub const WORKER_BATCH_CAPACITY: usize = 4;' \
+  'pub const MAX_RECEIVE_HISTORY_PAGE: u16 = 100;' \
+  'pub const MAX_RECEIVE_DECODES: usize = 128;' \
+  'pub const MAX_WATERFALL_BINS: usize = 2_048;' \
+  'pub const MAX_REPLAY_EVENTS: u16 = 256;'; do
+  if ! grep -RFq "${required}" apps crates; then
+    echo "Phase 2 lost a required queue/page/event bound: ${required}" >&2
+    exit 1
+  fi
+done
+
+for fixture in \
+  receive-start-command.json \
+  receive-status-response.json \
+  receive-decode-event.json \
+  receive-history-response.json \
+  waterfall-event.json; do
+  if [[ ! -f "crates/api/tests/fixtures/${fixture}" ]]; then
+    echo "missing reviewed Phase 2 wire fixture: ${fixture}" >&2
+    exit 1
+  fi
+done
+
+if grep -REn \
+  'cpal::|crossbeam_queue::|rustfft::|mfsk_core::|rusqlite::|slotpilot_audio|slotpilot_operations|slotpilot_protocol|slotpilot_storage' \
+  crates/api apps/cli; then
+  echo "public API or CLI leaked a receive implementation dependency" >&2
+  exit 1
+fi
+
+if grep -REn \
+  'cpal::|crossbeam_queue::|rustfft::|mfsk_core::|rusqlite::|build_output_stream|default_input_device|default_output_device|RigPort|TransmitSupervisorPort|TxInhibition|emergency_unkey|prepare_waveform' \
+  apps/daemon/src/receive.rs apps/daemon/src/receive_api.rs; then
+  echo "daemon receive composition gained a private dependency, fallback, output, rig, PTT, or transmit path" >&2
+  exit 1
+fi
+
+if grep -REn \
+  'std::net|TcpListener|UdpSocket|build_output_stream|default_output_device' \
+  apps crates/api crates/audio crates/operations crates/storage; then
+  echo "Phase 2 gained a remote or audio-output path" >&2
+  exit 1
+fi
+
+for marker in \
+  'public_api_cli_ipc_replay_conformance_is_bounded_and_restart_safe' \
+  'receive_and_public_event_commit_atomically_and_retry_exactly' \
+  'production_store_couples_committed_decode_to_ordered_event' \
+  'complete_healthy_window_preserves_all_classifications_and_retries_identity' \
+  'input_faults_inhibit_without_fallback_or_automatic_restart' \
+  'journal_failure_retries_through_port_identity_without_duplicate_mutation' \
+  'restart_snapshot_is_inactive_even_when_old_start_result_replays' \
+  'receive_human_json_and_jsonl_share_typed_values'; do
+  if ! grep -RFq "${marker}" apps crates; then
+    echo "Phase 2 lost required conformance evidence: ${marker}" >&2
+    exit 1
+  fi
+done
+
+if [[ ! -f docs/validation/phase2-macos-input.md ]]; then
+  echo "missing RF-free Phase 2 human validation protocol" >&2
+  exit 1
+fi
+
+cargo doc --locked --no-deps --package slotpilot-api --package slotpilot --package slotpilotd
+if find \
+  target/doc/slotpilot_api \
+  target/doc/slotpilot \
+  target/doc/slotpilotd \
+  -type f \
+  -name '*.html' \
+  ! -path '*/src/*' \
+  -exec grep -Eiq 'cpal::|rustfft::|mfsk[_-]core::|rusqlite::' {} +; then
+  echo "private receive implementation type leaked into public rustdoc" >&2
+  exit 1
+fi

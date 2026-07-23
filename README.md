@@ -14,8 +14,8 @@ All clients use the same versioned command/event API. No capability should exist
 
 > [!IMPORTANT]
 > This repository contains the Phase 0 local service foundation, the Phase 1
-> offline FT8 protocol harness, and initial owned Phase 2 receive-audio
-> contracts, discovery, and fakes. Static/in-memory FT8 messages, waveforms,
+> offline FT8 protocol harness, and the complete Phase 2 receive-only software
+> boundary. Static/in-memory FT8 messages, waveforms,
 > reviewed WAV fixtures, and bounded synthetic capture batches can be
 > processed in tests. Receive-only device discovery can enumerate stable input
 > identities, and the library adapter can open only an explicitly selected
@@ -89,9 +89,11 @@ bounded offline FT8 work is tracked by
 owned message classifications, the exact reviewed protocol dependency,
 redistributable fixtures, deterministic in-memory synthesis, bounded
 RIFF/WAVE parsing, and reproducible offline decode. This is protocol evidence,
-not a station feature. Phase 2 receive-only software is tracked by
-[issue #25](https://github.com/rwjblue/slotpilot/issues/25) and remains
-incomplete until its focused children and human-required validation land.
+not a station feature. Phase 2 receive-only work is tracked by
+[issue #25](https://github.com/rwjblue/slotpilot/issues/25). Its software
+boundary is complete; Phase 2 remains incomplete until the human-required
+RF-free macOS validation in issue #36 is performed against the exact landed
+revision.
 WSPR remains planned after the FT8 MVP.
 
 ## Validation

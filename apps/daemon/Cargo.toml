@@ -20,5 +20,8 @@ slotpilot-protocol.workspace = true
 slotpilot-storage.workspace = true
 thiserror.workspace = true
 
+[dev-dependencies]
+slotpilot = { path = "../cli" }
+
 [lints]
 workspace = true

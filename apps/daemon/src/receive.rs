@@ -9,9 +9,11 @@ use std::collections::VecDeque;
 
 use sha2::{Digest, Sha256};
 use slotpilot_audio::{
-    CaptureBatch, Ft8ReceiveTimeline, InputCaptureError, InputConfiguration, InputDeviceIdentity,
-    InputFault, InputFaultKind, InputHealth, InputPlatform, InputSampleFormat, ProcessGeneration,
-    ReceiveTimelineError, StreamGeneration, SystemInputCapture,
+    CanonicalSpectrumChunk, CaptureBatch, Ft8ReceiveTimeline, InputCaptureError,
+    InputConfiguration, InputDeviceIdentity, InputFault, InputFaultKind, InputHealth,
+    InputPlatform, InputSampleFormat, MAX_SPECTRUM_CHUNK_SAMPLES, ProcessGeneration,
+    ReceiveTimelineError, SpectrumConfig, SpectrumDiscontinuity, SpectrumModel, SpectrumModelError,
+    StreamGeneration, SystemInputCapture, WaterfallSnapshot,
 };
 use slotpilot_domain::{IdError, ReceiveWindowId, ServiceInstanceId};
 use slotpilot_operations::{
@@ -251,6 +253,8 @@ pub enum ReceivePollEvent {
         /// Number of typed decode outcomes retained.
         decode_count: usize,
     },
+    /// Latest bounded, already-rate-limited waterfall snapshot.
+    Waterfall(WaterfallSnapshot),
     /// Receive transitioned to an inhibited state.
     Lifecycle(ReceiveLifecycleEvent),
 }
@@ -276,6 +280,9 @@ pub enum ReceiveCoordinatorError {
     /// Deterministic receive identity construction failed.
     #[error(transparent)]
     Identity(#[from] IdError),
+    /// Bounded spectrum processing rejected canonical evidence.
+    #[error(transparent)]
+    Spectrum(#[from] SpectrumModelError),
 }
 
 /// Sole live FT8 receive coordinator for one daemon process generation.
@@ -296,6 +303,7 @@ pub struct LiveReceiveCoordinator<I, D, S = Store> {
     timeline: Option<Ft8ReceiveTimeline>,
     clock: Option<ReceiveClockMonitor>,
     worker_batches: VecDeque<CaptureBatch>,
+    spectrum: Option<SpectrumModel>,
 }
 
 impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
@@ -321,7 +329,14 @@ impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
             timeline: None,
             clock: None,
             worker_batches: VecDeque::with_capacity(WORKER_BATCH_CAPACITY),
+            spectrum: None,
         }
+    }
+
+    /// Enables bounded worker-side waterfall production.
+    pub fn enable_spectrum(&mut self, config: SpectrumConfig) -> Result<(), SpectrumModelError> {
+        self.spectrum = Some(SpectrumModel::new(config)?);
+        Ok(())
     }
 
     /// Returns current serialized lifecycle state.
@@ -379,6 +394,9 @@ impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
         ));
         self.clock = Some(monitor);
         self.worker_batches.clear();
+        if let Some(spectrum) = &mut self.spectrum {
+            spectrum.reset(SpectrumDiscontinuity::StreamGenerationChanged);
+        }
         let receiving = ReceiveLifecycleState::Receiving { stream_generation };
         Ok(vec![first, self.transition(receiving)])
     }
@@ -491,6 +509,9 @@ impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
         self.timeline = None;
         self.clock = None;
         self.worker_batches.clear();
+        if let Some(spectrum) = &mut self.spectrum {
+            spectrum.reset(SpectrumDiscontinuity::StreamGenerationChanged);
+        }
         let stopped = ReceiveLifecycleState::Stopped {
             process_generation: self.process_generation,
             last_stream_generation: self.last_stream_generation,
@@ -539,6 +560,25 @@ impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
                     break;
                 }
                 ClockGatedTimelineEvent::WindowReady { window, alignment } => {
+                    let waterfall = if let Some(spectrum) = &mut self.spectrum {
+                        let mut offset = 0_usize;
+                        while offset < window.samples().len() {
+                            let count =
+                                (window.samples().len() - offset).min(MAX_SPECTRUM_CHUNK_SAMPLES);
+                            spectrum.push(CanonicalSpectrumChunk::from_window(
+                                &window,
+                                u32::try_from(offset)
+                                    .map_err(|_| SpectrumModelError::ArithmeticOverflow)?,
+                                u32::try_from(count)
+                                    .map_err(|_| SpectrumModelError::ArithmeticOverflow)?,
+                                None,
+                            )?)?;
+                            offset += count;
+                        }
+                        spectrum.take_snapshot()
+                    } else {
+                        None
+                    };
                     let format = PcmFormat::new(
                         window.sample_rate_hz(),
                         1,
@@ -599,11 +639,16 @@ impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
                     };
                     let decode_count = record.decodes().len();
                     match self.store.record_receive(&record) {
-                        Ok(outcome) => results.push(ReceivePollEvent::Persisted {
-                            receive_window_id,
-                            outcome,
-                            decode_count,
-                        }),
+                        Ok(outcome) => {
+                            results.push(ReceivePollEvent::Persisted {
+                                receive_window_id,
+                                outcome,
+                                decode_count,
+                            });
+                            if let Some(snapshot) = waterfall {
+                                results.push(ReceivePollEvent::Waterfall(snapshot));
+                            }
+                        }
                         Err(_) => {
                             results.push(ReceivePollEvent::Lifecycle(
                                 self.inhibit(ReceiveInhibition::StorageFailure),
@@ -648,6 +693,9 @@ impl<I: DaemonReceiveInput, D: Ft8OfflineDecoder, S: DaemonReceiveStore>
         self.worker_batches.clear();
         self.timeline = None;
         self.clock = None;
+        if let Some(spectrum) = &mut self.spectrum {
+            spectrum.reset(SpectrumDiscontinuity::TimelineDiscontinuity);
+        }
         self.transition(ReceiveLifecycleState::Inhibited {
             stream_generation,
             reason,
@@ -1065,9 +1113,16 @@ mod tests {
     #[test]
     fn input_faults_inhibit_without_fallback_or_automatic_restart() {
         for kind in [
+            InputFaultKind::PermissionDenied,
             InputFaultKind::DeviceLost,
             InputFaultKind::Overflow { dropped_frames: 12 },
             InputFaultKind::Discontinuity(slotpilot_audio::CaptureDiscontinuityKind::BackendGap),
+            InputFaultKind::Clipping { sample_count: 3 },
+            InputFaultKind::Drift {
+                parts_per_million: 101,
+            },
+            InputFaultKind::CallbackDelay { millis: 251 },
+            InputFaultKind::BackendFailure,
         ] {
             let mut input = FakeInput::default();
             input.faults.push_back(InputFault {

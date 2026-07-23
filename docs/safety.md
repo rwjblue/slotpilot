@@ -5,10 +5,17 @@ This document defines invariants. Implementations may add stricter behavior but 
 ## Current capability boundary
 
 Phase 1 produces and inspects FT8 bits, in-memory PCM, and static RIFF/WAVE
-files only. Those artifacts are not transmit plans, operating authority,
-live-device buffers, or evidence of safe on-air behavior. No audio device,
-radio, PTT owner, scheduler, station API mutation, or automatic QSO transition
-exists in the current implementation.
+files. Phase 2 adds one daemon-owned, explicitly selected receive-only input,
+bounded processing, durable decode evidence, ordered local events, and public
+API/CLI observation and control. Receive starts inactive and device, time,
+timeline, decode, or storage failure inhibits it without fallback or automatic
+restart. Ordinary tests open no physical input, and the separate macOS
+validation must use only RF-free known audio or loopback.
+
+These artifacts and receive buffers are not transmit plans, operating
+authority, or evidence of safe on-air behavior. No audio output, radio,
+rig-control, PTT owner, transmit scheduler, transmit authority, or automatic
+QSO transition exists in the current implementation.
 
 ## Authority
 
@@ -101,6 +108,8 @@ Free text and unknown structured messages do not drive automation.
 ## Development and test safety
 
 - Fake rig/audio/protocol implementations are the default.
+- Phase 2 software conformance uses fake, replay, generated, or local-loopback
+  seams; ordinary CI never opens a physical input.
 - A physical-hardware feature or test target requires explicit opt-in.
 - No test assumes an antenna is connected.
 - PTT tests use a dummy load or equivalent safe setup and short hard limits.
