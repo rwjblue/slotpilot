@@ -77,7 +77,9 @@ When explicitly handed a GitHub issue:
 Phases 0 and 1 are complete. Phase 2 has begun with owned receive-only audio
 contracts, deterministic fakes, stable input-device discovery, and an isolated
 exact-device input stream feeding a bounded real-time-safe queue. Capture is
-not yet composed into the daemon or a live decode path.
+not yet composed into the daemon or a live decode path. A pure bounded
+fixed-point timeline can align and resample owned batches into canonical FT8
+windows while failing closed on discontinuity and timing uncertainty.
 The repository has a development-only no-op
 daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
 and hardware test seams, initial SQLite durability, and the complete repository

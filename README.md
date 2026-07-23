@@ -19,11 +19,12 @@ All clients use the same versioned command/event API. No capability should exist
 > reviewed WAV fixtures, and bounded synthetic capture batches can be
 > processed in tests. Receive-only device discovery can enumerate stable input
 > identities, and the library adapter can open only an explicitly selected
-> input into a bounded real-time-safe queue. It is not yet composed into the
-> daemon and performs no live decode. No audio output, radio, PTT, logging,
-> transmit, WSPR, or desktop behavior is available; live station capability
-> remains unavailable. Do not treat the repository or its unsigned local
-> artifacts as safe for on-air use.
+> input into a bounded real-time-safe queue. Pure worker-side processing can
+> deterministically align and resample those owned batches into canonical FT8
+> windows, but it is not yet composed into the daemon and performs no live
+> decode. No audio output, radio, PTT, logging, transmit, WSPR, or desktop
+> behavior is available; live station capability remains unavailable. Do not
+> treat the repository or its unsigned local artifacts as safe for on-air use.
 
 ## Product direction
 

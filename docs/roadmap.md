@@ -42,8 +42,10 @@ the owned offline FT8 contract, reviewed dependency/fixtures, message adapter,
 PCM synthesis, WAV decode, and bounded conformance evidence. The repository has
 owned receive-audio contracts, deterministic fakes, stable input-device
 discovery, and an isolated exact-device input adapter with a bounded callback
-queue, but no daemon-composed capture, live decode or protocol event path,
-audio output, radio, logging, desktop, WSPR, or transmit implementation.
+queue. Pure fixed-point processing aligns/resamples owned batches into
+canonical FT8 windows, but there is no daemon-composed capture, live decode or
+protocol event path, audio output, radio, logging, desktop, WSPR, or transmit
+implementation.
 
 ## Phase 0 — workspace and contracts
 

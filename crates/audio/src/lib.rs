@@ -8,12 +8,19 @@ use thiserror::Error;
 
 mod capture;
 mod discovery;
+mod timeline;
 
 pub use capture::{
     CALLBACK_DELAY_FAULT_MILLIS, DEFAULT_CAPTURE_QUEUE_BATCHES, InputCaptureError,
     MAX_CAPTURE_QUEUE_BATCHES, SystemInputCapture,
 };
 pub use discovery::SystemInputDiscovery;
+pub use timeline::{
+    Ft8ReceiveSlot, Ft8ReceiveTimeline, IncompleteFt8Slot, IncompleteSlotReason,
+    MAX_RECEIVE_BATCH_LATENESS_MILLIS, MAX_RECEIVE_CLOCK_REMAP_MILLIS,
+    MAX_RECEIVE_DRIFT_PARTS_PER_MILLION, MAX_RECEIVE_JITTER_MILLIS, ReceiveTimelineError,
+    ReceiveTimelineEvent, ReceiveTimelineHealth,
+};
 
 /// Canonical FT8 receive sample rate shared with the offline protocol contract.
 pub const FT8_RECEIVE_SAMPLE_RATE_HZ: u32 = 12_000;

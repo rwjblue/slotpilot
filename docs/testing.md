@@ -153,6 +153,14 @@ tests do not enumerate or require a physical device; physical permission,
 identity, capture, and device-loss evidence remains the separate
 human-required Phase 2 gate.
 
+The pure receive timeline is replayed at 8, 12, 44.1, 48, and 96 kHz. Tests
+cover exact, pre-boundary, and post-boundary starts; rational interpolation;
+accepted jitter; excessive drift; overflow/gap, overlap, and out-of-order
+positions; explicit discontinuity; UTC/monotonic remapping; late data; and
+process, stream, and configuration changes. Only a complete 180,000-sample
+window is valid. Tests supply the observation monotonic time directly and
+never sleep or read a physical clock.
+
 Protocol samples remain deterministic placeholders, not FT8/WSPR algorithms or
 device output. The emergency-unkey fake records a logical request and can
 report stuck PTT, but has no keying mechanism.

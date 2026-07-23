@@ -199,7 +199,18 @@ replacement.
 Resampling, FFTs, decode work, persistence, client state, logging, and rig
 interaction occur elsewhere.
 
-A timestamped audio timeline maps device samples into protocol windows. Transmit waveforms are fully prepared before their slot deadline and placed at a deterministic sample position.
+The worker-side receive timeline uses owned fixed-point rational interpolation
+with source-frame position and paired UTC/monotonic evidence. It holds at most
+one canonical FT8 window plus one source sample, maps output positions at exact
+12 kHz ticks, and emits only a complete 180,000-sample window beginning at a
+typed 15-second UTC slot. Partial slots are observable and withheld. Gaps,
+overlap, out-of-order data, explicit discontinuity, late arrival, excessive
+jitter/drift, UTC remapping, or generation/configuration change reset bounded
+resampler state and cannot produce a valid window. Detailed tolerances and
+reset behavior are in [`audio-timeline.md`](audio-timeline.md).
+
+Transmit waveforms are fully prepared before their slot deadline and placed at
+a deterministic sample position.
 
 Platform adapters provide stable device identities and permission/setup
 behavior. Discovery may enumerate input devices but cannot select by display

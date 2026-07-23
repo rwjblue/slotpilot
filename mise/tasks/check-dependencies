@@ -245,6 +245,20 @@ for forbidden in \
   fi
 done
 
+if grep -En \
+  'cpal::|crossbeam_queue::|mfsk_core::|rusqlite::|slotpilot_protocol|std::thread|sleep\(|build_(input|output)_stream|default_(input|output)_device' \
+  crates/audio/src/timeline.rs; then
+  echo "pure receive timeline gained device, protocol, persistence, or sleeping behavior" >&2
+  exit 1
+fi
+
+if ! grep -Fq \
+  'samples: Vec::with_capacity(FT8_RECEIVE_WINDOW_SAMPLES)' \
+  crates/audio/src/timeline.rs; then
+  echo "receive timeline must retain an explicitly bounded canonical window" >&2
+  exit 1
+fi
+
 expected_dependency_import="crates/protocol/src/offline_adapter.rs"
 actual_dependency_imports="$(
   find crates apps \
