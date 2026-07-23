@@ -62,9 +62,9 @@ apps/
   desktop/        native desktop client
 ```
 
-The bootstrapped workspace contains `domain`, `api`, `ipc`, `operations`,
-`storage`, `testkit`, `slotpilotd`, and `slotpilot`. Their allowed internal dependency
-graph is:
+The bootstrapped workspace contains `domain`, `api`, `ipc`, `protocol`,
+`operations`, `storage`, `testkit`, `slotpilotd`, and `slotpilot`. Their
+allowed internal dependency graph is:
 
 ```text
 slotpilotd ─┐
@@ -74,16 +74,18 @@ slotpilot  ─┘
 slotpilotd ─┐
 slotpilot  ─┴──> ipc ──> api
 
-operations ──> domain
-testkit ─────> operations ──> domain
+protocol ─────> domain
+operations ───> protocol ───> domain
+testkit ──────> operations ──> protocol ──> domain
 storage ────────────────────> domain
 ```
 
-`domain` has no internal workspace dependency. `api` may depend on `domain`;
-the daemon and CLI composition shells may depend on `api`. The executable
-`mise run check-dependencies` task verifies this allow-list from Cargo's
-resolved graph and is part of `mise run ci`. Later focused issues may extend
-the graph only in the direction described below.
+`domain` has no internal workspace dependency. `protocol` may depend on
+`domain`; `operations` may depend on both. `api` may depend on `domain`; the
+daemon and CLI composition shells may depend on `api`. The executable `mise
+run check-dependencies` task verifies this allow-list from Cargo's resolved
+graph and is part of `mise run ci`. Later focused issues may extend the graph
+only in the direction described below.
 
 ### Dependency direction
 
@@ -131,9 +133,22 @@ The endpoint is machine-local and user-scoped by default. Filesystem/socket perm
 
 ## Protocol boundary
 
-`mfsk-core` is the planned initial GPL-compatible FT8/WSPR implementation. It remains behind SlotPilot-owned traits because it is a young `0.x` dependency and must not define public APIs or persisted representations.
+`slotpilot-protocol` owns the FT8 message classification, message-codec,
+offline decode metadata, and PCM/waveform contracts. Supported resolved
+messages are structurally distinct from unresolved hashes, unsupported
+structured content, ambiguous data, and free text; consumers must use an
+explicit checked conversion to obtain a resolved message.
 
-The protocol layer returns typed decodes and messages. It does not select callers, log QSOs, control PTT, or decide whether a message may advance an exchange.
+`mfsk-core` is the planned initial GPL-compatible FT8/WSPR implementation. It
+remains behind SlotPilot-owned traits because it is a young `0.x` dependency
+and must not define public APIs or persisted representations.
+
+The protocol layer returns typed decodes, messages, packed bits, and bounded
+offline PCM with explicit sample rate, channels, sample format, duration,
+amplitude, audio frequency, and placement units. Result ordering is defined by
+owned metadata and canonical text rather than adapter worker order. It does
+not select callers, log QSOs, control PTT, or decide whether a message may
+advance an exchange.
 
 A reference-process or fixture-based adapter may be used only in testing to compare known behavior.
 

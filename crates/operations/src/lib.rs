@@ -8,9 +8,8 @@ mod ports;
 mod time;
 
 pub use ports::{
-    AudioFault, AudioFaultKind, AudioHealth, AudioPort, DecodedMessage, EmergencyUnkeyError,
-    ProtocolMessage, ProtocolPayload, ProtocolPort, RigCommand, RigFault, RigPort, RigState,
-    TransmitSupervisorPort, TxInhibition, Waveform,
+    AudioFault, AudioFaultKind, AudioHealth, AudioPort, EmergencyUnkeyError, ProtocolPort,
+    RigCommand, RigFault, RigPort, RigState, TransmitSupervisorPort, TxInhibition,
 };
 pub use time::{
     Clock, ClockFault, ClockHealth, ClockMonitor, ClockSample, MonotonicDeadline, MonotonicInstant,

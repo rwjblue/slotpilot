@@ -1,6 +1,7 @@
 //! Consumer-owned ports for future hardware and protocol adapters.
 
-use slotpilot_domain::{DialFrequency, FullCallsign, OperatingMode, Power, TransmissionId};
+use slotpilot_domain::{DialFrequency, OperatingMode, Power, TransmissionId};
+use slotpilot_protocol::{Ft8Decode, Ft8WaveformError, Ft8WaveformRequest, PcmBuffer};
 use thiserror::Error;
 
 use crate::MonotonicInstant;
@@ -116,50 +117,15 @@ pub trait AudioPort {
     fn health(&mut self) -> Result<AudioHealth, AudioFault>;
 }
 
-/// Typed protocol message independent of any implementation dependency.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ProtocolMessage {
-    /// Synchronized protocol mode.
-    pub mode: OperatingMode,
-    /// Resolved transmitting station.
-    pub sender: FullCallsign,
-    /// Resolved intended recipient.
-    pub recipient: FullCallsign,
-    /// Typed message meaning.
-    pub payload: ProtocolPayload,
-}
-
-/// Small typed message vocabulary sufficient for Phase 0 fakes.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ProtocolPayload {
-    /// Signal report in decibels.
-    SignalReport(i8),
-    /// Final acknowledgement.
-    Acknowledgement,
-}
-
-/// A message observed at a deterministic monotonic time.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DecodedMessage {
-    /// Observation time.
-    pub observed_at: MonotonicInstant,
-    /// Resolved typed message.
-    pub message: ProtocolMessage,
-}
-
-/// Prepared in-memory placeholder samples with no audio-device behavior.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Waveform {
-    /// Signed normalized placeholder samples.
-    pub samples: Vec<i16>,
-}
-
 /// Protocol boundary consumed by operations.
 pub trait ProtocolPort {
-    /// Drains deterministic typed decodes.
-    fn drain_decodes(&mut self) -> Vec<DecodedMessage>;
-    /// Returns deterministic placeholder samples for a typed message.
-    fn prepare_waveform(&mut self, message: &ProtocolMessage) -> Waveform;
+    /// Drains deterministically ordered owned FT8 decodes.
+    fn drain_decodes(&mut self) -> Vec<Ft8Decode>;
+    /// Returns deterministic offline samples for an owned FT8 request.
+    fn prepare_waveform(
+        &mut self,
+        request: &Ft8WaveformRequest,
+    ) -> Result<PcmBuffer, Ft8WaveformError>;
 }
 
 /// Typed reason the logical transmit-supervisor port refuses admission.

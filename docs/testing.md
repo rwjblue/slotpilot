@@ -51,6 +51,15 @@ FT8 fixtures are established on the Phase 1 critical path. Equivalent WSPR
 fixtures are added in Phase 8 before any WSPR live receive or transmit behavior
 is accepted.
 
+`slotpilot-protocol` owns the FT8 fixture-facing vocabulary. A decoded outcome
+is exactly one of resolved supported, unresolved hash, unsupported structured,
+ambiguous, or free text. Only the resolved variant can pass its checked
+conversion. Offline PCM metadata uses integer hertz, channel counts, signed
+16-bit sample format, complete frames, and integer duration units. Decode
+results sort by owned time offset, audio frequency, canonical text,
+classification, and signal report so adapter scheduling cannot define fixture
+order.
+
 ### Fake rig and audio
 
 The test kit provides deterministic implementations that can inject:
@@ -64,12 +73,13 @@ The test kit provides deterministic implementations that can inject:
 - clipping, overrun, underrun, and callback delay;
 - sample-clock drift and latency changes.
 
-The `operations` crate owns rig, audio, protocol, and logical
-transmit-supervisor traits and values. `slotpilot-testkit` implements them with
-in-memory fakes. Faults are queued deterministically; timing-sensitive audio
-faults carry a virtual monotonic instant. Protocol samples are placeholders,
-not FT8/WSPR algorithms or device output. The emergency-unkey fake records a
-logical request and can report stuck PTT, but has no keying mechanism.
+The `operations` crate owns rig, audio, and logical transmit-supervisor values
+and consumes the `slotpilot-protocol` owned boundary. `slotpilot-testkit`
+implements the ports with in-memory fakes. Faults are queued deterministically;
+timing-sensitive audio faults carry a virtual monotonic instant. Protocol
+samples remain deterministic placeholders, not FT8/WSPR algorithms or device
+output. The emergency-unkey fake records a logical request and can report stuck
+PTT, but has no keying mechanism.
 
 ### Persistence and crash tests
 

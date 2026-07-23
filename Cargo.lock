@@ -338,6 +338,15 @@ name = "slotpilot-operations"
 version = "0.1.0-dev.0"
 dependencies = [
  "slotpilot-domain",
+ "slotpilot-protocol",
+ "thiserror",
+]
+
+[[package]]
+name = "slotpilot-protocol"
+version = "0.1.0-dev.0"
+dependencies = [
+ "slotpilot-domain",
  "thiserror",
 ]
 
@@ -356,6 +365,7 @@ version = "0.1.0-dev.0"
 dependencies = [
  "slotpilot-domain",
  "slotpilot-operations",
+ "slotpilot-protocol",
 ]
 
 [[package]]

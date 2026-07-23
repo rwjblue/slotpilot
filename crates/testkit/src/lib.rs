@@ -7,10 +7,10 @@ use std::collections::VecDeque;
 
 use slotpilot_domain::TransmissionId;
 use slotpilot_operations::{
-    AudioFault, AudioHealth, AudioPort, DecodedMessage, EmergencyUnkeyError, ProtocolMessage,
-    ProtocolPort, RigCommand, RigFault, RigPort, RigState, TransmitSupervisorPort, TxInhibition,
-    Waveform,
+    AudioFault, AudioHealth, AudioPort, EmergencyUnkeyError, ProtocolPort, RigCommand, RigFault,
+    RigPort, RigState, TransmitSupervisorPort, TxInhibition,
 };
+use slotpilot_protocol::{Ft8Decode, Ft8WaveformError, Ft8WaveformRequest, PcmBuffer, PcmError};
 
 /// Deterministic in-memory rig port.
 #[derive(Debug, Clone)]
@@ -90,7 +90,7 @@ impl AudioPort for FakeAudio {
 /// Deterministic typed message and placeholder-waveform port.
 #[derive(Debug, Default, Clone)]
 pub struct FakeProtocol {
-    decodes: VecDeque<DecodedMessage>,
+    decodes: VecDeque<Ft8Decode>,
 }
 
 impl FakeProtocol {
@@ -101,24 +101,25 @@ impl FakeProtocol {
     }
 
     /// Queues one typed decode.
-    pub fn emit(&mut self, decode: DecodedMessage) {
+    pub fn emit(&mut self, decode: Ft8Decode) {
         self.decodes.push_back(decode);
     }
 }
 
 impl ProtocolPort for FakeProtocol {
-    fn drain_decodes(&mut self) -> Vec<DecodedMessage> {
-        self.decodes.drain(..).collect()
+    fn drain_decodes(&mut self) -> Vec<Ft8Decode> {
+        let mut decodes: Vec<_> = self.decodes.drain(..).collect();
+        Ft8Decode::sort_deterministically(&mut decodes);
+        decodes
     }
 
-    fn prepare_waveform(&mut self, message: &ProtocolMessage) -> Waveform {
-        let marker = match message.payload {
-            slotpilot_operations::ProtocolPayload::SignalReport(report) => i16::from(report),
-            slotpilot_operations::ProtocolPayload::Acknowledgement => i16::MAX,
-        };
-        Waveform {
-            samples: vec![marker; 8],
-        }
+    fn prepare_waveform(
+        &mut self,
+        request: &Ft8WaveformRequest,
+    ) -> Result<PcmBuffer, Ft8WaveformError> {
+        let marker = i16::try_from(request.message.canonical_text().len())
+            .map_err(|_| PcmError::BufferTooLarge)?;
+        Ok(PcmBuffer::new(request.format, vec![marker; 8])?)
     }
 }
 
@@ -173,8 +174,11 @@ impl TransmitSupervisorPort for FakeTransmitSupervisor {
 mod tests {
     use slotpilot_domain::{DialFrequency, OperatingMode, Power};
     use slotpilot_operations::{
-        AudioFaultKind, Clock, ClockSample, MonotonicInstant, ProtocolPayload, UtcInstant,
-        VirtualClock,
+        AudioFaultKind, Clock, ClockSample, MonotonicInstant, UtcInstant, VirtualClock,
+    };
+    use slotpilot_protocol::{
+        ClassifiedFt8Message, Ft8DecodeMetadata, Ft8MessageClass, Ft8WaveformPlacement,
+        PcmAmplitudePermille, PcmFormat, PcmSampleFormat, ResolvedFt8Message,
     };
 
     use super::*;
@@ -245,24 +249,34 @@ mod tests {
 
     #[test]
     fn fake_protocol_emits_typed_messages_and_deterministic_samples() {
-        let message = ProtocolMessage {
-            mode: OperatingMode::Ft8,
-            sender: "K1ABC".parse().unwrap(),
-            recipient: "W1AW".parse().unwrap(),
-            payload: ProtocolPayload::SignalReport(-12),
+        let message = ResolvedFt8Message::new(
+            "K1ABC W1AW -12",
+            "K1ABC".parse().unwrap(),
+            Some("W1AW".parse().unwrap()),
+            Ft8MessageClass::SignalReport,
+        )
+        .unwrap();
+        let decode = Ft8Decode {
+            metadata: Ft8DecodeMetadata {
+                start_offset_millis: 42,
+                audio_frequency_hz: 1_000,
+                signal_to_noise_db: -12,
+            },
+            message: ClassifiedFt8Message::Resolved(message.clone()),
         };
-        let decode = DecodedMessage {
-            observed_at: MonotonicInstant::from_millis(42),
-            message: message.clone(),
+        let request = Ft8WaveformRequest {
+            message,
+            format: PcmFormat::new(12_000, 1, PcmSampleFormat::Signed16LittleEndian).unwrap(),
+            audio_frequency: slotpilot_domain::AudioFrequency::from_hz(1_000).unwrap(),
+            amplitude: PcmAmplitudePermille::new(500).unwrap(),
+            placement: Ft8WaveformPlacement::FrameOnly,
         };
         let mut protocol = FakeProtocol::new();
         protocol.emit(decode.clone());
         assert_eq!(protocol.drain_decodes(), vec![decode]);
         assert_eq!(
-            protocol.prepare_waveform(&message),
-            Waveform {
-                samples: vec![-12; 8]
-            }
+            protocol.prepare_waveform(&request).unwrap().samples(),
+            vec![14; 8]
         );
     }
 

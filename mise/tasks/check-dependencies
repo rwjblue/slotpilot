@@ -37,6 +37,7 @@ slotpilot-api
 slotpilot-domain
 slotpilot-ipc
 slotpilot-operations
+slotpilot-protocol
 slotpilot-storage
 slotpilot-testkit
 slotpilotd"
@@ -60,10 +61,13 @@ fi
 
 assert_workspace_dependencies "slotpilot-domain" ""
 assert_workspace_dependencies "slotpilot-ipc" "slotpilot-api"
-assert_workspace_dependencies "slotpilot-operations" "slotpilot-domain"
+assert_workspace_dependencies "slotpilot-protocol" "slotpilot-domain"
+assert_workspace_dependencies "slotpilot-operations" "slotpilot-domain
+slotpilot-protocol"
 assert_workspace_dependencies "slotpilot-storage" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-testkit" "slotpilot-domain
-slotpilot-operations"
+slotpilot-operations
+slotpilot-protocol"
 assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
 assert_workspace_dependencies "slotpilotd" "slotpilot-api
 slotpilot-domain
