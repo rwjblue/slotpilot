@@ -6,8 +6,8 @@
 //! new [`ServiceInstanceId`]; the identity grants no authority and is not
 //! restored after restart.
 
-use serde::{Deserialize, Serialize};
-use slotpilot_domain::{RequestId, ServiceInstanceId};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use slotpilot_domain::{EventId, RequestId, ServiceInstanceId};
 use thiserror::Error;
 
 /// The only API version supported by this Phase 0 contract.
@@ -15,6 +15,173 @@ pub const API_VERSION: u32 = 1;
 
 /// Maximum number of version entries accepted in a negotiation request.
 pub const MAX_NEGOTIATION_VERSIONS: usize = 16;
+
+/// Maximum events returned by one replay exchange.
+pub const MAX_REPLAY_EVENTS: u16 = 256;
+
+/// Position in one daemon event generation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventCursor {
+    /// Daemon generation that owns the sequence.
+    pub service_instance_id: ServiceInstanceId,
+    /// Last event already observed; zero means before the first event.
+    pub sequence: u64,
+}
+
+/// One ordered, versioned daemon event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventEnvelope {
+    /// Version used to encode this event.
+    pub api_version: u32,
+    /// Generation that emitted the event.
+    pub service_instance_id: ServiceInstanceId,
+    /// Monotonic database sequence within the retained event log.
+    pub sequence: u64,
+    /// Stable event identity.
+    pub event_id: EventId,
+    /// Event occurrence time in UTC milliseconds since the Unix epoch.
+    pub occurred_utc_millis: i64,
+    /// Typed known event or safely opaque unknown event.
+    pub event: EventPayload,
+}
+
+/// Phase 0 event payloads.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EventPayload {
+    /// Side-effect-free marker used only to exercise observation plumbing.
+    Phase0Notice {
+        /// Bounded human-readable marker with no control semantics.
+        message: String,
+    },
+    /// Event kind unknown to this client version.
+    ///
+    /// Clients may display or record this value, but must not derive state
+    /// transitions or authority from its string kind or fields.
+    Unknown {
+        /// Unrecognized symbolic kind.
+        kind: String,
+        /// Complete payload object excluding `kind`.
+        fields: serde_json::Map<String, serde_json::Value>,
+    },
+}
+
+impl Serialize for EventPayload {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let object = match self {
+            Self::Phase0Notice { message } => {
+                let mut object = serde_json::Map::new();
+                object.insert("kind".into(), "phase0_notice".into());
+                object.insert("message".into(), message.clone().into());
+                object
+            }
+            Self::Unknown { kind, fields } => {
+                let mut object = fields.clone();
+                object.insert("kind".into(), kind.clone().into());
+                object
+            }
+        };
+        object.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for EventPayload {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let mut object = serde_json::Map::<String, serde_json::Value>::deserialize(deserializer)?;
+        let kind = object
+            .remove("kind")
+            .and_then(|value| value.as_str().map(str::to_owned))
+            .ok_or_else(|| serde::de::Error::custom("event payload requires string kind"))?;
+        if kind == "phase0_notice" {
+            let message = object
+                .remove("message")
+                .and_then(|value| value.as_str().map(str::to_owned))
+                .ok_or_else(|| serde::de::Error::custom("phase0_notice requires string message"))?;
+            return Ok(Self::Phase0Notice { message });
+        }
+        Ok(Self::Unknown {
+            kind,
+            fields: object,
+        })
+    }
+}
+
+/// One bounded replay request.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubscriptionRequest {
+    /// API version requested by the client.
+    pub api_version: u32,
+    /// Last event already observed, or none to begin at retained history.
+    pub after: Option<EventCursor>,
+    /// Requested page size, from 1 through [`MAX_REPLAY_EVENTS`].
+    pub limit: u16,
+}
+
+/// One bounded replay response.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SubscriptionResponse {
+    /// Version used to encode this response.
+    pub api_version: u32,
+    /// Typed replay result.
+    #[serde(flatten)]
+    pub outcome: SubscriptionOutcome,
+}
+
+/// Stable replay outcomes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "outcome", content = "payload", rename_all = "snake_case")]
+pub enum SubscriptionOutcome {
+    /// A bounded page, possibly empty.
+    Events {
+        /// Ordered retained events after the requested cursor.
+        events: Vec<EventEnvelope>,
+        /// Cursor through the final returned event, or the request cursor when empty.
+        next_cursor: EventCursor,
+        /// More retained events are immediately available.
+        has_more: bool,
+    },
+    /// Requested cursor predates retained history.
+    CursorGap {
+        /// Cursor supplied by the client.
+        requested: EventCursor,
+        /// Earliest cursor from which replay is possible.
+        earliest_available: EventCursor,
+    },
+    /// Requested cursor is ahead of committed history.
+    CursorUnavailable {
+        /// Cursor supplied by the client.
+        requested: EventCursor,
+        /// Latest committed cursor.
+        latest_available: EventCursor,
+    },
+    /// Cursor belongs to another daemon generation.
+    IncompatibleGeneration {
+        /// Generation supplied by the client.
+        requested_service_instance_id: ServiceInstanceId,
+        /// Current generation.
+        current_service_instance_id: ServiceInstanceId,
+    },
+    /// Request version or page bound is invalid.
+    InvalidRequest {
+        /// Stable symbolic reason.
+        reason: SubscriptionInvalidReason,
+    },
+}
+
+/// Stable replay request validation failures.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubscriptionInvalidReason {
+    /// Requested API version is not supported.
+    IncompatibleApiVersion,
+    /// Limit was zero or exceeded [`MAX_REPLAY_EVENTS`].
+    InvalidLimit,
+}
 
 /// A bounded command submitted by a client.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -156,6 +323,8 @@ pub enum Availability {
 pub struct StationSnapshot {
     /// Current daemon process generation.
     pub service_instance_id: ServiceInstanceId,
+    /// Event cursor compatible with this snapshot.
+    pub event_cursor: EventCursor,
     /// Station configuration state.
     pub configuration: ConfigurationState,
     /// Operating-session state.
@@ -319,6 +488,10 @@ impl NoopService {
             Command::GetSnapshot => {
                 ResponseOutcome::Success(ResultBody::Snapshot(StationSnapshot {
                     service_instance_id: self.instance_id.clone(),
+                    event_cursor: EventCursor {
+                        service_instance_id: self.instance_id.clone(),
+                        sequence: 0,
+                    },
                     configuration: ConfigurationState::NotConfigured,
                     operation: OperationState::NotRunning,
                     transmit_authority: Availability::Unavailable,

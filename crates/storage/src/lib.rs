@@ -8,7 +8,7 @@
 use std::{path::Path, time::Duration};
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
-use slotpilot_domain::{CommandId, RequestId};
+use slotpilot_domain::{CommandId, EventId, RequestId, ServiceInstanceId};
 use thiserror::Error;
 
 const SCHEMA_VERSION: u32 = 1;
@@ -34,6 +34,9 @@ pub enum StorageError {
     /// A non-request unique identity collided without a matching request row.
     #[error("durable identity collision")]
     IdentityCollision,
+    /// A SQLite sequence could not be represented by the public unsigned cursor.
+    #[error("persisted event sequence is outside the supported cursor range")]
+    InvalidSequence,
 }
 
 /// Original accepted command identity and result recovered for safe retry.
@@ -58,6 +61,34 @@ pub enum AcceptOutcome {
     Inserted(AcceptedCommand),
     /// Another call had already accepted the request identity.
     Existing(AcceptedCommand),
+}
+
+/// Storage-owned representation of one operational event.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredEvent {
+    /// Global monotonically increasing SQLite sequence.
+    pub sequence: u64,
+    /// Stable event identity.
+    pub event_id: EventId,
+    /// Daemon generation that emitted the event.
+    pub service_instance_id: ServiceInstanceId,
+    /// SlotPilot API payload JSON.
+    pub event_json: String,
+    /// Occurrence time in UTC milliseconds since the Unix epoch.
+    pub occurred_utc_millis: i64,
+}
+
+/// Bounded retained history for one service generation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplayWindow {
+    /// Ordered page after the requested sequence.
+    pub events: Vec<StoredEvent>,
+    /// Earliest retained sequence for this generation.
+    pub earliest_sequence: Option<u64>,
+    /// Latest retained sequence for this generation.
+    pub latest_sequence: Option<u64>,
+    /// Whether another event exists beyond this page.
+    pub has_more: bool,
 }
 
 /// SQLite store with migrations applied on open.
@@ -183,6 +214,113 @@ impl Store {
             .connection
             .pragma_query_value(None, "user_version", |row| row.get(0))?)
     }
+
+    /// Appends one validated JSON event and returns its assigned sequence.
+    pub fn append_event(
+        &mut self,
+        event_id: &EventId,
+        service_instance_id: &ServiceInstanceId,
+        event_json: &str,
+        occurred_utc_millis: i64,
+    ) -> Result<u64, StorageError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        transaction.execute(
+            "INSERT INTO operational_events (
+                event_id, service_instance_id, event_json, occurred_utc_millis
+             ) VALUES (?1, ?2, ?3, ?4)",
+            params![
+                event_id.as_str(),
+                service_instance_id.as_str(),
+                event_json,
+                occurred_utc_millis
+            ],
+        )?;
+        let sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| StorageError::InvalidSequence)?;
+        transaction.commit()?;
+        Ok(sequence)
+    }
+
+    /// Reads at most `limit` ordered events after a cursor for one generation.
+    pub fn replay_events(
+        &self,
+        service_instance_id: &ServiceInstanceId,
+        after_sequence: u64,
+        limit: usize,
+    ) -> Result<ReplayWindow, StorageError> {
+        let (earliest, latest): (Option<i64>, Option<i64>) = self.connection.query_row(
+            "SELECT MIN(sequence), MAX(sequence)
+             FROM operational_events
+             WHERE service_instance_id = ?1",
+            [service_instance_id.as_str()],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )?;
+        let earliest_sequence = earliest.map(sequence_from_i64).transpose()?;
+        let latest_sequence = latest.map(sequence_from_i64).transpose()?;
+        let after = i64::try_from(after_sequence).map_err(|_| StorageError::InvalidSequence)?;
+        let fetch_limit =
+            i64::try_from(limit.saturating_add(1)).map_err(|_| StorageError::InvalidSequence)?;
+        let mut statement = self.connection.prepare(
+            "SELECT sequence, event_id, service_instance_id, event_json, occurred_utc_millis
+             FROM operational_events
+             WHERE service_instance_id = ?1 AND sequence > ?2
+             ORDER BY sequence
+             LIMIT ?3",
+        )?;
+        let rows = statement.query_map(
+            params![service_instance_id.as_str(), after, fetch_limit],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            },
+        )?;
+        let mut events = Vec::new();
+        for row in rows {
+            let (sequence, event_id, instance_id, event_json, occurred_utc_millis) = row?;
+            events.push(StoredEvent {
+                sequence: sequence_from_i64(sequence)?,
+                event_id: event_id.parse()?,
+                service_instance_id: instance_id.parse()?,
+                event_json,
+                occurred_utc_millis,
+            });
+        }
+        let has_more = events.len() > limit;
+        events.truncate(limit);
+        Ok(ReplayWindow {
+            events,
+            earliest_sequence,
+            latest_sequence,
+            has_more,
+        })
+    }
+
+    /// Deletes events older than `first_retained_sequence`.
+    ///
+    /// This is the explicit retention primitive; callers remain responsible
+    /// for choosing a bounded policy.
+    pub fn prune_events_before(
+        &mut self,
+        first_retained_sequence: u64,
+    ) -> Result<usize, StorageError> {
+        let sequence =
+            i64::try_from(first_retained_sequence).map_err(|_| StorageError::InvalidSequence)?;
+        Ok(self.connection.execute(
+            "DELETE FROM operational_events WHERE sequence < ?1",
+            [sequence],
+        )?)
+    }
+}
+
+fn sequence_from_i64(sequence: i64) -> Result<u64, StorageError> {
+    u64::try_from(sequence).map_err(|_| StorageError::InvalidSequence)
 }
 
 fn read_accepted_command(
@@ -254,10 +392,75 @@ mod tests {
         }
     }
 
+    fn event(id: &str) -> EventId {
+        id.parse().unwrap()
+    }
+
+    fn instance() -> ServiceInstanceId {
+        "svc_01jabcde9".parse().unwrap()
+    }
+
     #[test]
     fn clean_creation_and_forward_migration_reach_version_one() {
         let store = Store::open_in_memory().unwrap();
         assert_eq!(store.schema_version().unwrap(), 1);
+    }
+
+    #[test]
+    fn event_replay_is_ordered_bounded_and_reports_retained_window() {
+        let mut store = Store::open_in_memory().unwrap();
+        for (id, marker) in [
+            ("evt_01jabcde9", "one"),
+            ("evt_01jabcdf0", "two"),
+            ("evt_01jabcdf1", "three"),
+        ] {
+            store
+                .append_event(
+                    &event(id),
+                    &instance(),
+                    &format!(r#"{{"kind":"phase0_notice","message":"{marker}"}}"#),
+                    10,
+                )
+                .unwrap();
+        }
+        let page = store.replay_events(&instance(), 0, 2).unwrap();
+        assert_eq!(page.events.len(), 2);
+        assert!(page.events[0].sequence < page.events[1].sequence);
+        assert_eq!(page.earliest_sequence, Some(1));
+        assert_eq!(page.latest_sequence, Some(3));
+        assert!(page.has_more);
+    }
+
+    #[test]
+    fn event_retention_and_persistence_failures_are_explicit() {
+        let mut store = Store::open_in_memory().unwrap();
+        let event_id = event("evt_01jabcde9");
+        let sequence = store
+            .append_event(
+                &event_id,
+                &instance(),
+                r#"{"kind":"phase0_notice","message":"one"}"#,
+                10,
+            )
+            .unwrap();
+        assert!(
+            store
+                .append_event(&event_id, &instance(), "{}", 11)
+                .is_err()
+        );
+        assert_eq!(store.prune_events_before(sequence + 1).unwrap(), 1);
+        assert!(
+            store
+                .replay_events(&instance(), 0, 10)
+                .unwrap()
+                .events
+                .is_empty()
+        );
+        assert!(
+            store
+                .append_event(&event("evt_01jabcdf0"), &instance(), "not json", 12)
+                .is_err()
+        );
     }
 
     #[test]

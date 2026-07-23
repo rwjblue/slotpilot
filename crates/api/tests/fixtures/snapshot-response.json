@@ -6,6 +6,10 @@
     "kind": "snapshot",
     "value": {
       "service_instance_id": "svc_01jabcde9",
+      "event_cursor": {
+        "service_instance_id": "svc_01jabcde9",
+        "sequence": 0
+      },
       "configuration": "not_configured",
       "operation": "not_running",
       "transmit_authority": "unavailable"

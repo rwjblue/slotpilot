@@ -181,12 +181,28 @@ impl LocalServer {
         service: &NoopService,
         cancellation: &CancellationToken,
     ) -> Result<(), IpcError> {
+        self.serve_exchange(cancellation, |request| service.execute(request))
+    }
+
+    /// Accepts one bounded typed request and writes one typed response.
+    ///
+    /// Peer authorization and framing are shared by command, snapshot, and
+    /// event replay paths.
+    pub fn serve_exchange<Request, Response>(
+        &self,
+        cancellation: &CancellationToken,
+        handler: impl FnOnce(Request) -> Response,
+    ) -> Result<(), IpcError>
+    where
+        Request: DeserializeOwned,
+        Response: Serialize,
+    {
         cancellation.check()?;
         let mut stream = self.listener.accept()?;
         let _authorization = authorize_peer(&stream)?;
         cancellation.check()?;
-        let request: CommandEnvelope = read_frame(&mut stream, cancellation)?;
-        let response = service.execute(request);
+        let request = read_frame(&mut stream, cancellation)?;
+        let response = handler(request);
         write_frame(&mut stream, &response, cancellation)?;
         Ok(())
     }
@@ -202,6 +218,19 @@ impl LocalClient {
         request: &CommandEnvelope,
         cancellation: &CancellationToken,
     ) -> Result<ResponseEnvelope, IpcError> {
+        Self::exchange(address, request, cancellation)
+    }
+
+    /// Connects, sends one bounded typed value, and receives one typed value.
+    pub fn exchange<Request, Response>(
+        address: &EndpointAddress,
+        request: &Request,
+        cancellation: &CancellationToken,
+    ) -> Result<Response, IpcError>
+    where
+        Request: Serialize,
+        Response: DeserializeOwned,
+    {
         cancellation.check()?;
         let mut stream = connect(&address.kind)?;
         write_frame(&mut stream, request, cancellation)?;

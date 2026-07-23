@@ -24,6 +24,15 @@ validity, identity uniqueness, non-negative UTC times, revision bounds, and
 closed state/profile-kind values are database constraints rather than
 application assumptions.
 
+Operational events use SQLite's monotonically assigned sequence as their
+durable order. Reads are scoped to one `service_instance_id`, ordered by
+sequence, and fetch only a caller-supplied bounded page plus one row to
+determine `has_more`. Retention deletes older rows explicitly; a cursor before
+the first retained sequence becomes a structured API gap rather than an
+implicit jump. Event IDs remain unique, so a duplicate publication fails
+without appending another sequence. The storage crate retains SlotPilot domain
+IDs and JSON only; API envelope reconstruction belongs to the daemon boundary.
+
 Version 1 intentionally has no final FT8 QSO or WSPR field set, ADIF behavior,
 network delivery, integration credentials, live arm token, transmit authority,
 resumable PTT state, or hardware access. Later migrations must preserve these

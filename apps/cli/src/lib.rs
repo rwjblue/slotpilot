@@ -3,7 +3,9 @@
 //! Table and JSON output consume the same typed API response. Snapshot requests
 //! use the shared user-scoped local transport.
 
-use slotpilot_api::{ResponseEnvelope, ResponseOutcome, ResultBody};
+use slotpilot_api::{
+    ResponseEnvelope, ResponseOutcome, ResultBody, SubscriptionRequest, SubscriptionResponse,
+};
 use slotpilot_domain::RequestId;
 use slotpilot_ipc::{CancellationToken, EndpointAddress, IpcError, LocalClient};
 
@@ -22,6 +24,15 @@ pub fn request_snapshot(
         },
         cancellation,
     )
+}
+
+/// Requests one bounded event replay page through the shared local transport.
+pub fn request_events(
+    address: &EndpointAddress,
+    request: &SubscriptionRequest,
+    cancellation: &CancellationToken,
+) -> Result<SubscriptionResponse, IpcError> {
+    LocalClient::exchange(address, request, cancellation)
 }
 
 /// Renders one bounded API response as JSON.
@@ -73,8 +84,9 @@ mod tests {
     };
 
     use slotpilot_api::{
-        API_VERSION, Command, CommandEnvelope, NoopService, OperationState, ResponseOutcome,
-        ResultBody,
+        API_VERSION, Command, CommandEnvelope, EventCursor, NoopService, OperationState,
+        ResponseOutcome, ResultBody, SubscriptionOutcome, SubscriptionRequest,
+        SubscriptionResponse,
     };
     use slotpilot_ipc::LocalServer;
 
@@ -129,6 +141,66 @@ mod tests {
             response.outcome,
             ResponseOutcome::Success(ResultBody::Snapshot(snapshot))
                 if snapshot.operation == OperationState::NotRunning
+        ));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn snapshot_then_subscription_share_the_typed_local_transport() {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "slotpilot-cli-events-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        let address = EndpointAddress::for_user(&directory, "events_test").unwrap();
+        let server = LocalServer::bind(&address).unwrap();
+        let service_id = "svc_01jabcde9".parse().unwrap();
+        let handle = thread::spawn(move || {
+            let cancellation = CancellationToken::new();
+            server
+                .serve_once(&NoopService::new(service_id), &cancellation)
+                .unwrap();
+            server
+                .serve_exchange(&cancellation, |request: SubscriptionRequest| {
+                    SubscriptionResponse {
+                        api_version: API_VERSION,
+                        outcome: SubscriptionOutcome::Events {
+                            events: Vec::new(),
+                            next_cursor: request.after.unwrap(),
+                            has_more: false,
+                        },
+                    }
+                })
+                .unwrap();
+        });
+        let cancellation = CancellationToken::new();
+        let snapshot =
+            request_snapshot(&address, "req_01jabcde9".parse().unwrap(), &cancellation).unwrap();
+        let ResponseOutcome::Success(ResultBody::Snapshot(snapshot)) = snapshot.outcome else {
+            panic!("expected snapshot");
+        };
+        let response = request_events(
+            &address,
+            &SubscriptionRequest {
+                api_version: API_VERSION,
+                after: Some(EventCursor {
+                    service_instance_id: snapshot.service_instance_id,
+                    sequence: snapshot.event_cursor.sequence,
+                }),
+                limit: 16,
+            },
+            &cancellation,
+        )
+        .unwrap();
+        handle.join().unwrap();
+        assert!(matches!(
+            response.outcome,
+            SubscriptionOutcome::Events {
+                events,
+                has_more: false,
+                ..
+            } if events.is_empty()
         ));
         fs::remove_dir_all(directory).unwrap();
     }

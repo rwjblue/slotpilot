@@ -1,0 +1,14 @@
+{
+  "api_version": 1,
+  "outcome": "cursor_gap",
+  "payload": {
+    "requested": {
+      "service_instance_id": "svc_01jabcde9",
+      "sequence": 2
+    },
+    "earliest_available": {
+      "service_instance_id": "svc_01jabcde9",
+      "sequence": 5
+    }
+  }
+}

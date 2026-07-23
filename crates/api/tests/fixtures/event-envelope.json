@@ -1,0 +1,11 @@
+{
+  "api_version": 1,
+  "service_instance_id": "svc_01jabcde9",
+  "sequence": 7,
+  "event_id": "evt_01jabcde9",
+  "occurred_utc_millis": 1721798400000,
+  "event": {
+    "kind": "phase0_notice",
+    "message": "observation path ready"
+  }
+}

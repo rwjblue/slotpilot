@@ -165,17 +165,48 @@ These categories require fixtures before being treated as stable.
 
 A client first requests a bounded snapshot containing current service, rig, audio, clock, session, operating-mode, and queue state. It then subscribes to ordered events beginning from a cursor when supported.
 
-The Phase 0 no-op snapshot is narrower: it reports a `service_instance_id`,
-`not_configured`, `not_running`, and unavailable transmit authority. Each
-daemon process generation has a new `svc_` identity. That identity is for
-reconnect/restart detection only; it is not persisted authority and a changed
-identity never implies restoration of station state.
+The Phase 0 no-op snapshot is narrower: it reports a `service_instance_id`, an
+event cursor at sequence zero, `not_configured`, `not_running`, and unavailable
+transmit authority. Each daemon process generation has a new `svc_` identity.
+That identity is for reconnect/restart detection only; it is not persisted
+authority and a changed identity never implies restoration of station state.
 
-Reviewed version-1 command, result, error, capability, and snapshot JSON
-fixtures are maintained under `crates/api/tests/fixtures/`. Human table output
-and JSON output are renderings of the same typed response model.
+Reviewed version-1 command, result, error, capability, snapshot, event, cursor,
+and replay-outcome JSON fixtures are maintained under
+`crates/api/tests/fixtures/`. Human table output and JSON output are renderings
+of the same typed response model.
 
-Events include stable IDs, UTC time, monotonic/sequence ordering information, and a schema version. Clients must tolerate unknown additive event fields and should surface unsupported event kinds rather than silently reinterpreting them.
+Events include API version, stable `evt_` identity, UTC milliseconds, daemon
+generation, monotonically increasing SQLite sequence, and a SlotPilot-owned
+payload. A cursor is the pair `(service_instance_id, sequence)` and represents
+the last event already observed. Sequence zero means before the first event.
+
+Replay is one request per local IPC connection and is capped at 256 events.
+The response carries a `next_cursor` and `has_more`; a slow client repeatedly
+requests bounded pages and is never given an unbounded server queue. A clean
+disconnect loses no cursor state. After reconnect the client obtains a fresh
+snapshot, compares generations, and subscribes from a compatible cursor.
+
+Replay outcomes are explicit:
+
+- `events` is an ordered, possibly empty page;
+- `cursor_gap` means retention removed required history and reports the first
+  retained event position;
+- `cursor_unavailable` means the cursor is ahead of committed history;
+- `incompatible_generation` means the cursor belongs to another daemon
+  process and must never be continued silently;
+- `invalid_request` covers an incompatible API version or a limit outside
+  1–256.
+
+Reopening storage with the same service-instance identity preserves compatible
+replay. A daemon restart uses a new identity, so persisted old cursors receive
+`incompatible_generation`; clients must refresh their snapshot. Cancellation
+is checked at IPC connection and frame boundaries.
+
+Version-1 clients deserialize recognized payloads into typed variants.
+Unrecognized event kinds retain their opaque JSON fields for display or
+diagnostics, but cannot trigger a typed state transition and never grant
+authority. Unknown additive envelope fields remain tolerated.
 
 ## Local transport
 

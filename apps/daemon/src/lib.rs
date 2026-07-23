@@ -8,9 +8,11 @@ use std::path::Path;
 
 use slotpilot_api::{
     API_VERSION, ApiError, CanonicalizationError, CommandClass, CommandEnvelope, ErrorCode,
-    ErrorDetails, NoopService, ResponseEnvelope, ResponseOutcome, ResultBody,
+    ErrorDetails, EventCursor, EventEnvelope, EventPayload, MAX_REPLAY_EVENTS, NoopService,
+    ResponseEnvelope, ResponseOutcome, ResultBody, SubscriptionInvalidReason, SubscriptionOutcome,
+    SubscriptionRequest, SubscriptionResponse,
 };
-use slotpilot_domain::{CommandId, RequestId, ServiceInstanceId};
+use slotpilot_domain::{CommandId, EventId, RequestId, ServiceInstanceId};
 use slotpilot_ipc::{CancellationToken, IpcError, LocalServer};
 use slotpilot_storage::{AcceptOutcome, AcceptedCommand, StorageError, Store};
 use thiserror::Error;
@@ -27,6 +29,177 @@ pub enum ProcessorError {
     /// A persisted original result was not valid versioned API JSON.
     #[error("invalid persisted API result: {0}")]
     InvalidPersistedResult(#[from] serde_json::Error),
+}
+
+/// Event publication or replay failure before a bounded response is available.
+#[derive(Debug, Error)]
+pub enum EventProcessorError {
+    /// SQLite failed to append or replay event history.
+    #[error(transparent)]
+    Storage(#[from] StorageError),
+    /// Persisted event JSON was not a valid owned API payload.
+    #[error("invalid persisted event payload: {0}")]
+    InvalidPersistedEvent(#[from] serde_json::Error),
+    /// The Phase 0 marker exceeded its fixed bound.
+    #[error("Phase 0 notice must not exceed 512 bytes")]
+    NoticeTooLong,
+}
+
+/// Durable ordered event publisher and bounded replay service.
+pub struct EventService {
+    store: Store,
+    service_instance_id: ServiceInstanceId,
+}
+
+impl EventService {
+    /// Opens event history for one daemon process generation.
+    pub fn open(
+        path: impl AsRef<Path>,
+        service_instance_id: ServiceInstanceId,
+    ) -> Result<Self, EventProcessorError> {
+        Ok(Self {
+            store: Store::open(path)?,
+            service_instance_id,
+        })
+    }
+
+    /// Builds an isolated in-memory event service.
+    pub fn in_memory(service_instance_id: ServiceInstanceId) -> Result<Self, EventProcessorError> {
+        Ok(Self {
+            store: Store::open_in_memory()?,
+            service_instance_id,
+        })
+    }
+
+    /// Builds the service around an already migrated store.
+    #[must_use]
+    pub fn from_store(store: Store, service_instance_id: ServiceInstanceId) -> Self {
+        Self {
+            store,
+            service_instance_id,
+        }
+    }
+
+    /// Appends one side-effect-free Phase 0 observation event.
+    pub fn publish_notice(
+        &mut self,
+        event_id: EventId,
+        message: String,
+        occurred_utc_millis: i64,
+    ) -> Result<EventEnvelope, EventProcessorError> {
+        if message.len() > 512 {
+            return Err(EventProcessorError::NoticeTooLong);
+        }
+        let payload = EventPayload::Phase0Notice { message };
+        let event_json = serde_json::to_string(&payload)?;
+        let sequence = self.store.append_event(
+            &event_id,
+            &self.service_instance_id,
+            &event_json,
+            occurred_utc_millis,
+        )?;
+        Ok(EventEnvelope {
+            api_version: API_VERSION,
+            service_instance_id: self.service_instance_id.clone(),
+            sequence,
+            event_id,
+            occurred_utc_millis,
+            event: payload,
+        })
+    }
+
+    /// Returns one bounded replay page or a stable cursor outcome.
+    pub fn subscribe(
+        &self,
+        request: SubscriptionRequest,
+    ) -> Result<SubscriptionResponse, EventProcessorError> {
+        if request.api_version != API_VERSION {
+            return Ok(subscription_outcome(SubscriptionOutcome::InvalidRequest {
+                reason: SubscriptionInvalidReason::IncompatibleApiVersion,
+            }));
+        }
+        if request.limit == 0 || request.limit > MAX_REPLAY_EVENTS {
+            return Ok(subscription_outcome(SubscriptionOutcome::InvalidRequest {
+                reason: SubscriptionInvalidReason::InvalidLimit,
+            }));
+        }
+        if let Some(cursor) = &request.after
+            && cursor.service_instance_id != self.service_instance_id
+        {
+            return Ok(subscription_outcome(
+                SubscriptionOutcome::IncompatibleGeneration {
+                    requested_service_instance_id: cursor.service_instance_id.clone(),
+                    current_service_instance_id: self.service_instance_id.clone(),
+                },
+            ));
+        }
+
+        let requested_sequence = request.after.as_ref().map_or(0, |cursor| cursor.sequence);
+        let window = self.store.replay_events(
+            &self.service_instance_id,
+            requested_sequence,
+            usize::from(request.limit),
+        )?;
+        if let Some(earliest) = window.earliest_sequence
+            && requested_sequence < earliest.saturating_sub(1)
+        {
+            return Ok(subscription_outcome(SubscriptionOutcome::CursorGap {
+                requested: cursor(&self.service_instance_id, requested_sequence),
+                earliest_available: cursor(&self.service_instance_id, earliest),
+            }));
+        }
+        let latest = window.latest_sequence.unwrap_or(0);
+        if requested_sequence > latest {
+            return Ok(subscription_outcome(
+                SubscriptionOutcome::CursorUnavailable {
+                    requested: cursor(&self.service_instance_id, requested_sequence),
+                    latest_available: cursor(&self.service_instance_id, latest),
+                },
+            ));
+        }
+
+        let events = window
+            .events
+            .into_iter()
+            .map(|stored| {
+                Ok(EventEnvelope {
+                    api_version: API_VERSION,
+                    service_instance_id: stored.service_instance_id,
+                    sequence: stored.sequence,
+                    event_id: stored.event_id,
+                    occurred_utc_millis: stored.occurred_utc_millis,
+                    event: serde_json::from_str(&stored.event_json)?,
+                })
+            })
+            .collect::<Result<Vec<_>, serde_json::Error>>()?;
+        let next_sequence = events
+            .last()
+            .map_or(requested_sequence, |event| event.sequence);
+        Ok(subscription_outcome(SubscriptionOutcome::Events {
+            events,
+            next_cursor: cursor(&self.service_instance_id, next_sequence),
+            has_more: window.has_more,
+        }))
+    }
+
+    /// Applies the retention boundary used by replay-gap tests and future policy.
+    pub fn prune_before(&mut self, sequence: u64) -> Result<usize, EventProcessorError> {
+        Ok(self.store.prune_events_before(sequence)?)
+    }
+}
+
+fn cursor(service_instance_id: &ServiceInstanceId, sequence: u64) -> EventCursor {
+    EventCursor {
+        service_instance_id: service_instance_id.clone(),
+        sequence,
+    }
+}
+
+fn subscription_outcome(outcome: SubscriptionOutcome) -> SubscriptionResponse {
+    SubscriptionResponse {
+        api_version: API_VERSION,
+        outcome,
+    }
 }
 
 /// No-op service processor with durable mutating-request semantics.
@@ -137,7 +310,7 @@ mod tests {
         thread,
     };
 
-    use slotpilot_api::{Command, ResponseOutcome};
+    use slotpilot_api::{Command, EventPayload, ResponseOutcome, SubscriptionOutcome};
 
     use super::*;
 
@@ -275,5 +448,129 @@ mod tests {
             Err(ProcessorError::Storage(_))
         ));
         assert!(!processor.is_journaled(&id).unwrap());
+    }
+
+    fn subscription(after: Option<EventCursor>, limit: u16) -> SubscriptionRequest {
+        SubscriptionRequest {
+            api_version: API_VERSION,
+            after,
+            limit,
+        }
+    }
+
+    #[test]
+    fn replay_is_bounded_and_unknown_events_do_not_drive_typed_state() {
+        let mut service = EventService::in_memory(instance()).unwrap();
+        for (id, message) in [
+            ("evt_01jabcde9", "one"),
+            ("evt_01jabcdf0", "two"),
+            ("evt_01jabcdf1", "three"),
+        ] {
+            service
+                .publish_notice(id.parse().unwrap(), message.into(), 10)
+                .unwrap();
+        }
+        let response = service.subscribe(subscription(None, 2)).unwrap();
+        let SubscriptionOutcome::Events {
+            events,
+            next_cursor,
+            has_more: true,
+        } = response.outcome
+        else {
+            panic!("expected bounded event page");
+        };
+        assert_eq!(events.len(), 2);
+        assert!(matches!(events[0].event, EventPayload::Phase0Notice { .. }));
+        let final_page = service
+            .subscribe(subscription(Some(next_cursor), 2))
+            .unwrap();
+        assert!(matches!(
+            final_page.outcome,
+            SubscriptionOutcome::Events {
+                ref events,
+                has_more: false,
+                ..
+            } if events.len() == 1
+        ));
+    }
+
+    #[test]
+    fn gap_future_and_generation_outcomes_are_distinct() {
+        let mut service = EventService::in_memory(instance()).unwrap();
+        for id in ["evt_01jabcde9", "evt_01jabcdf0"] {
+            service
+                .publish_notice(id.parse().unwrap(), "notice".into(), 10)
+                .unwrap();
+        }
+        service.prune_before(2).unwrap();
+        assert!(matches!(
+            service
+                .subscribe(subscription(Some(cursor(&instance(), 0)), 10))
+                .unwrap()
+                .outcome,
+            SubscriptionOutcome::CursorGap { .. }
+        ));
+        assert!(matches!(
+            service
+                .subscribe(subscription(Some(cursor(&instance(), 99)), 10))
+                .unwrap()
+                .outcome,
+            SubscriptionOutcome::CursorUnavailable { .. }
+        ));
+        let old: ServiceInstanceId = "svc_01jabcdf0".parse().unwrap();
+        assert!(matches!(
+            service
+                .subscribe(subscription(Some(cursor(&old, 0)), 10))
+                .unwrap()
+                .outcome,
+            SubscriptionOutcome::IncompatibleGeneration { .. }
+        ));
+    }
+
+    #[test]
+    fn compatible_reopen_resumes_and_restart_fails_generation_closed() {
+        let path = temp_database();
+        let event_cursor = {
+            let mut service = EventService::open(&path, instance()).unwrap();
+            let event = service
+                .publish_notice("evt_01jabcde9".parse().unwrap(), "persisted".into(), 10)
+                .unwrap();
+            cursor(&instance(), event.sequence)
+        };
+        let reopened = EventService::open(&path, instance()).unwrap();
+        assert!(matches!(
+            reopened
+                .subscribe(subscription(Some(event_cursor.clone()), 10))
+                .unwrap()
+                .outcome,
+            SubscriptionOutcome::Events { ref events, .. } if events.is_empty()
+        ));
+        let restarted = EventService::open(&path, "svc_01jabcdf0".parse().unwrap()).unwrap();
+        assert!(matches!(
+            restarted
+                .subscribe(subscription(Some(event_cursor), 10))
+                .unwrap()
+                .outcome,
+            SubscriptionOutcome::IncompatibleGeneration { .. }
+        ));
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn invalid_persisted_payload_is_a_typed_failure() {
+        let mut store = Store::open_in_memory().unwrap();
+        store
+            .append_event(
+                &"evt_01jabcde9".parse().unwrap(),
+                &instance(),
+                r#"{"kind":"phase0_notice","message":false}"#,
+                10,
+            )
+            .unwrap();
+        let service = EventService::from_store(store, instance());
+        assert!(matches!(
+            service.subscribe(subscription(None, 10)),
+            Err(EventProcessorError::InvalidPersistedEvent(_))
+        ));
     }
 }
