@@ -21,6 +21,12 @@ if ! grep -Fq "run: mise run ci" "${workflow}"; then
   exit 1
 fi
 
+if ! grep -Fq "if: runner.os == 'Linux'" "${workflow}" ||
+   ! grep -Fq "libasound2-dev" "${workflow}"; then
+  echo "CI workflow must install CPAL's ALSA development headers on Linux" >&2
+  exit 1
+fi
+
 mise_line="$(grep -nF "uses: jdx/mise-action@" "${workflow}" | cut -d: -f1)"
 cargo_cache_line="$(grep -nF "uses: Swatinem/rust-cache@" "${workflow}" | cut -d: -f1)"
 gate_line="$(grep -nF "run: mise run ci" "${workflow}" | cut -d: -f1)"

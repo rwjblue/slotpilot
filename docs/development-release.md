@@ -11,6 +11,12 @@ Install the pinned Rust toolchain with:
 mise install
 ```
 
+Linux development also requires the ALSA headers used by CPAL:
+
+```sh
+sudo apt-get install libasound2-dev
+```
+
 The canonical workflows are:
 
 ```sh

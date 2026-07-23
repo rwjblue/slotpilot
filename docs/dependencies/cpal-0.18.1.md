@@ -48,6 +48,9 @@ The target-specific closure includes:
 - `alsa`, `libc`, and their system ALSA library requirement on Linux/BSD;
 - `dasp_sample` on all targets.
 
+The Linux CI job installs `libasound2-dev` before compiling the workspace.
+Linux development hosts need the equivalent ALSA development package.
+
 Linux builds require the ALSA development package documented upstream. The
 repository's GitHub Actions matrix must compile and test the exact lockfile on
 macOS, Windows, and Ubuntu before any issue using this pin lands. Optional
