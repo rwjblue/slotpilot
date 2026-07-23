@@ -291,7 +291,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "slotpilot"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilot-api"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilot-domain"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilot-ipc"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "fs2",
  "interprocess",
@@ -335,7 +335,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilot-operations"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "slotpilot-domain",
  "thiserror",
@@ -343,7 +343,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilot-storage"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "rusqlite",
  "slotpilot-domain",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilot-testkit"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "slotpilot-domain",
  "slotpilot-operations",
@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "slotpilotd"
-version = "0.1.0"
+version = "0.1.0-dev.0"
 dependencies = [
  "anyhow",
  "serde_json",

@@ -6,15 +6,31 @@ set -euo pipefail
 required_files=(
   "AGENTS.md"
   "CONTRIBUTING.md"
+  "CHANGELOG.md"
   "README.md"
   "docs/architecture.md"
   "docs/safety.md"
   "docs/testing.md"
+  "docs/development-release.md"
 )
 
 for file in "${required_files[@]}"; do
   if [[ ! -f "${file}" ]]; then
     echo "missing required documentation: ${file}" >&2
+    exit 1
+  fi
+done
+
+for command in "mise run handshake" "mise run build-dev"; do
+  if ! grep -Fq "${command}" "CONTRIBUTING.md"; then
+    echo "CONTRIBUTING.md must document '${command}'" >&2
+    exit 1
+  fi
+done
+
+for file in "README.md" "CHANGELOG.md" "docs/development-release.md"; do
+  if ! grep -Fq "unavailable" "${file}"; then
+    echo "${file} must state unavailable capability status" >&2
     exit 1
   fi
 done

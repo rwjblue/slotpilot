@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+#MISE description="Build an unsigned, unpublished development-only artifact"
+
+set -euo pipefail
+
+cargo build --workspace
+
+artifact_directory="target/slotpilot-dev"
+mkdir -p "${artifact_directory}"
+executable_suffix=""
+if [[ "${OSTYPE:-}" == msys* || "${OSTYPE:-}" == cygwin* ]]; then
+  executable_suffix=".exe"
+fi
+cp "target/debug/slotpilot${executable_suffix}" "${artifact_directory}/"
+cp "target/debug/slotpilotd${executable_suffix}" "${artifact_directory}/"
+printf '%s\n' \
+  "SlotPilot 0.1.0-dev.0 — DEVELOPMENT ONLY" \
+  "Unsigned and unpublished. RF, radio, audio, FT8, WSPR, logging, and transmit operation are unavailable." \
+  > "${artifact_directory}/DEVELOPMENT-ONLY.txt"
+printf 'Development artifact: %s\n' "${artifact_directory}"

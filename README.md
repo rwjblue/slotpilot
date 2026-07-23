@@ -13,10 +13,10 @@ The intended system has one hardware-owning daemon and two first-party clients:
 All clients use the same versioned command/event API. No capability should exist only in the GUI.
 
 > [!IMPORTANT]
-> This repository currently contains design documents and compile-only Rust
-> boundary shells. There is no working radio, audio, FT8, WSPR, logging,
-> daemon, CLI, or desktop behavior. Do not treat the repository as safe for
-> on-air use.
+> This repository contains a Phase 0 development-only no-op daemon/CLI
+> handshake and contract test foundation. RF, radio control, audio, FT8, WSPR,
+> logging, transmit, and desktop behavior are unavailable. Do not treat the
+> repository or its unsigned local artifacts as safe for on-air use.
 
 ## Product direction
 
@@ -61,9 +61,9 @@ A contributor or coding agent should read these files in order:
 7. [`docs/roadmap.md`](docs/roadmap.md)
 8. [`docs/backlog/phase-0.md`](docs/backlog/phase-0.md)
 
-The repository is intentionally behavior-free beyond compile-only boundary
-shells. An assigned issue should create only the narrow slice it owns and
-preserve the documented boundaries.
+The repository is intentionally behavior-free beyond local no-op API,
+persistence, and test seams. An assigned issue should create only the narrow
+slice it owns and preserve the documented boundaries.
 
 Phase 0 implementation is coordinated through
 [tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). GitHub issues
@@ -75,6 +75,11 @@ sequencing and stable acceptance themes.
 Use `mise run check` for the fast local formatting, Clippy, and test loop. Run
 `mise run ci` before proposing or landing a change; it is the complete
 repository gate used by GitHub Actions.
+
+Run `mise run handshake` for the one-request no-op daemon/CLI exchange and
+`mise run build-dev` for an unsigned, unpublished local artifact. See
+[`docs/development-release.md`](docs/development-release.md). These workflows
+cannot operate a radio.
 
 ## Documentation
 

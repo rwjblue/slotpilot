@@ -8,6 +8,17 @@ set but is not a second execution tracker.
 
 Read `AGENTS.md` and the design documents it references. Safety and architecture boundaries are product requirements, not optional implementation guidance.
 
+Install the repository-pinned Rust toolchain and verify the no-op boundary:
+
+```text
+mise install
+mise run handshake
+```
+
+The handshake reports `not_configured`, `not_running`, and unavailable
+transmit authority. It requires no hardware or credentials and cannot operate
+a radio.
+
 For durable architectural changes, open or update an architecture decision record under `docs/decisions/` before building multiple layers around the new choice.
 
 The `agent-ready` label records that an issue is bounded and unblocked. It does
@@ -47,12 +58,18 @@ sequence:
 ```text
 mise run check
 mise run ci
+mise run build-dev
 ```
 
 `mise run check` is the fast loop covering formatting, Clippy with warnings
 denied, and workspace tests. `mise run ci` adds the toolchain,
 dependency-direction, documentation, and CI-configuration checks and is the
 complete landing gate.
+
+`mise run ci` includes explicit API wire-fixture and SQLite schema compatibility
+checks. `mise run build-dev` constructs only an unsigned, unpublished,
+development-only artifact under `target/`; see
+`docs/development-release.md`.
 
 Tests that require a physical radio, audio interface, antenna, network service, or operator transmission must not run in ordinary CI.
 

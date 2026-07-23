@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+#MISE description="Run the development-only Phase 0 daemon/CLI handshake"
+
+set -euo pipefail
+
+runtime_directory="$(mktemp -d "${TMPDIR:-/tmp}/slotpilot-phase0.XXXXXXXX")"
+daemon_log="${runtime_directory}/daemon.log"
+cleanup() {
+  if [[ -n "${daemon_pid:-}" ]]; then
+    kill "${daemon_pid}" 2>/dev/null || true
+  fi
+  rm -rf "${runtime_directory}"
+}
+trap cleanup EXIT
+
+cargo run --quiet -p slotpilotd -- --phase0-once "${runtime_directory}" >"${daemon_log}" 2>&1 &
+daemon_pid=$!
+
+for _attempt in {1..50}; do
+  if output="$(cargo run --quiet -p slotpilot -- phase0-status "${runtime_directory}" 2>/dev/null)"; then
+    printf '%s\n' "${output}"
+    wait "${daemon_pid}"
+    daemon_pid=""
+    exit 0
+  fi
+  if ! kill -0 "${daemon_pid}" 2>/dev/null; then
+    cat "${daemon_log}" >&2
+    wait "${daemon_pid}"
+  fi
+  sleep 0.1
+done
+
+echo "Phase 0 handshake timed out" >&2
+cat "${daemon_log}" >&2
+exit 1
