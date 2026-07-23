@@ -24,10 +24,13 @@ All clients use the same versioned command/event API. No capability should exist
 > windows. A receive-only clock gate rejects stale, jumped, delayed, or
 > misaligned mappings. A pure bounded spectrum/waterfall model derives
 > rate-limited owned rows from canonical samples without a renderer or wire
-> schema. These pieces are not yet composed into the daemon and perform no
-> live decode. No audio output, radio, PTT, logging, transmit, WSPR, or desktop
-> behavior is available; live station capability remains unavailable. Do not
-> treat the repository or its unsigned local artifacts as safe for on-air use.
+> schema. SQLite schema version 2 can atomically retain bounded receive-window,
+> diagnostic, and exact FT8 classification evidence without raw PCM or
+> waterfall rows. These pieces are not yet composed into the daemon and
+> perform no live decode. No audio output, radio, PTT, logging, transmit, WSPR,
+> or desktop behavior is available; live station capability remains
+> unavailable. Do not treat the repository or its unsigned local artifacts as
+> safe for on-air use.
 
 ## Product direction
 

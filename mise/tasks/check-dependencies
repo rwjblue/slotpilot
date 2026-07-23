@@ -67,7 +67,9 @@ assert_workspace_dependencies "slotpilot-protocol" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-operations" "slotpilot-audio
 slotpilot-domain
 slotpilot-protocol"
-assert_workspace_dependencies "slotpilot-storage" "slotpilot-domain"
+assert_workspace_dependencies "slotpilot-storage" "slotpilot-audio
+slotpilot-domain
+slotpilot-protocol"
 assert_workspace_dependencies "slotpilot-testkit" "slotpilot-audio
 slotpilot-domain
 slotpilot-operations
@@ -304,6 +306,20 @@ if grep -En \
   'std::thread|sleep\(|TransmitSupervisor|RigPort|build_output_stream|rusqlite::|serde::' \
   crates/operations/src/receive_clock.rs; then
   echo "receive clock monitor gained sleeping, authority, rig, output, persistence, or wire behavior" >&2
+  exit 1
+fi
+
+if grep -REn \
+  'cpal::|crossbeam_queue::|mfsk_core::|rustfft::|slotpilot_operations|slotpilot_api|std::thread|sleep\(|build_(input|output)_stream' \
+  crates/storage/src; then
+  echo "receive storage gained a private dependency, operations/API, device, output, or sleeping path" >&2
+  exit 1
+fi
+
+if grep -Ein \
+  'raw[_ ]?(pcm|audio)|waterfall|transmit_authority|resumable_ptt|arm_token' \
+  crates/storage/migrations/0002_phase2_receive.sql; then
+  echo "receive migration gained raw audio, waterfall, or live transmit-authority state" >&2
   exit 1
 fi
 

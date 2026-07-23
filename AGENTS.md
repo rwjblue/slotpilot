@@ -84,7 +84,10 @@ production UTC/monotonic sampler and receive clock gate latch unhealthy time,
 reject windows until visible recovery, and create no transmit authority. A
 pure worker-side spectrum/waterfall model applies a reviewed FFT behind owned
 integer-frequency/magnitude rows, fixed memory/CPU/publication bounds, and
-visible reset metadata; it has no renderer or public schema.
+visible reset metadata; it has no renderer or public schema. SQLite schema
+version 2 atomically stores bounded receive-window context, diagnostics, and
+exact owned FT8 classifications with idempotent identity and bounded queries;
+it stores no raw PCM or waterfall rows.
 The repository has a development-only no-op
 daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
 and hardware test seams, initial SQLite durability, and the complete repository

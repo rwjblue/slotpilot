@@ -5,10 +5,11 @@ commands, events, persistence boundaries, operations, and tests.
 
 ## Identities
 
-Request, command, event, session, profile-revision, QSO, QSO-attempt, and
-transmission identities are opaque strings with a type-specific prefix and a
-bounded lowercase ASCII payload. Their display and JSON forms are the same
-string. Callers must not infer ordering or meaning from the payload.
+Request, command, event, session, service-instance, receive-window,
+profile-revision, QSO, QSO-attempt, and transmission identities are opaque
+strings with a type-specific prefix and a bounded lowercase ASCII payload.
+Their display and JSON forms are the same string. Callers must not infer
+ordering or meaning from the payload.
 
 ## Callsigns and roles
 

@@ -101,6 +101,11 @@ define_id!(
     "Identity of one running daemon process generation."
 );
 define_id!(
+    ReceiveWindowId,
+    "rxw_",
+    "Stable identity of one persisted receive window and its diagnostic evidence."
+);
+define_id!(
     ProfileRevisionId,
     "prv_",
     "Identity of one immutable profile revision."

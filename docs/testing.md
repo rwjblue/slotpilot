@@ -185,6 +185,11 @@ report stuck PTT, but has no keying mechanism.
 
 Test transactional behavior around:
 
+- clean schema-v2 creation and migration from schema version 1;
+- exact receive-window context and all five owned FT8 classifications across
+  reopen;
+- receive retry collision, atomic injected failure, bounded pagination,
+  retention cascade, malformed durable values, and every clock-fault shape;
 - completed QSO plus duplicate update plus log outbox;
 - WSPR spot plus upload outbox;
 - request-ID acceptance and conflict;

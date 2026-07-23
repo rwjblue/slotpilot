@@ -1,9 +1,9 @@
 //! Versioned SQLite operational storage.
 //!
-//! Schema version 1 represents accepted command identities/results, immutable
-//! profile/session context, ordered events, generic outbox work, and external
-//! receipts. It deliberately contains no final QSO, WSPR, ADIF, upload, live
-//! arm token, transmit authority, or resumable PTT state.
+//! Schema version 2 adds bounded receive-window, decode-classification, and
+//! diagnostic evidence to the Phase 0 command/event/outbox foundation. It
+//! deliberately contains no raw continuous PCM, bulk waterfall rows, final
+//! QSO, WSPR, ADIF, live arm token, transmit authority, or resumable PTT state.
 
 use std::{path::Path, time::Duration};
 
@@ -11,8 +11,17 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use slotpilot_domain::{CommandId, EventId, RequestId, ServiceInstanceId};
 use thiserror::Error;
 
-const SCHEMA_VERSION: u32 = 1;
+mod receive;
+
+pub use receive::{
+    MAX_RECEIVE_PAGE_SIZE, MAX_STORED_DECODES_PER_WINDOW, ReceiveClockFault, ReceiveClockHealth,
+    ReceiveDiagnosticSummary, ReceiveInsertOutcome, ReceivePage, ReceiveRecord,
+    ReceiveWindowContext, SequencedReceiveRecord,
+};
+
+const SCHEMA_VERSION: u32 = 2;
 const MIGRATION_1: &str = include_str!("../migrations/0001_phase0.sql");
+const MIGRATION_2: &str = include_str!("../migrations/0002_phase2_receive.sql");
 
 /// Typed storage-boundary failure.
 #[derive(Debug, Error)]
@@ -34,9 +43,18 @@ pub enum StorageError {
     /// A non-request unique identity collided without a matching request row.
     #[error("durable identity collision")]
     IdentityCollision,
-    /// A SQLite sequence could not be represented by the public unsigned cursor.
-    #[error("persisted event sequence is outside the supported cursor range")]
+    /// A SQLite integer could not represent the owned unsigned value.
+    #[error("persisted integer is outside the supported range")]
     InvalidSequence,
+    /// A receive record violated a bounded cross-field invariant before insert.
+    #[error("invalid receive record: {0}")]
+    InvalidReceiveRecord(&'static str),
+    /// A persisted receive value could not be reconstructed as an owned type.
+    #[error("invalid persisted receive value: {0}")]
+    InvalidPersistedReceiveValue(&'static str),
+    /// A receive query requested an unbounded or empty page.
+    #[error("receive page limit must be between 1 and {MAX_RECEIVE_PAGE_SIZE}")]
+    InvalidPageLimit,
 }
 
 /// Original accepted command identity and result recovered for safe retry.
@@ -129,6 +147,10 @@ impl Store {
         if found < 1 {
             transaction.execute_batch(MIGRATION_1)?;
             transaction.pragma_update(None, "user_version", 1)?;
+        }
+        if found < 2 {
+            transaction.execute_batch(MIGRATION_2)?;
+            transaction.pragma_update(None, "user_version", 2)?;
         }
         transaction.commit()?;
         Ok(())
@@ -401,9 +423,59 @@ mod tests {
     }
 
     #[test]
-    fn clean_creation_and_forward_migration_reach_version_one() {
+    fn clean_creation_reaches_schema_version_two() {
         let store = Store::open_in_memory().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 1);
+        assert_eq!(store.schema_version().unwrap(), 2);
+    }
+
+    #[test]
+    fn schema_version_one_migrates_forward_with_receive_constraints_and_indexes() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(MIGRATION_1).unwrap();
+        connection.pragma_update(None, "user_version", 1).unwrap();
+        let store = Store::from_connection(connection).unwrap();
+        assert_eq!(store.schema_version().unwrap(), 2);
+        let schema: String = store
+            .connection
+            .query_row(
+                "SELECT group_concat(sql, '\n') FROM sqlite_schema WHERE sql IS NOT NULL",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        for required in [
+            "receive_windows",
+            "receive_diagnostics",
+            "receive_decodes",
+            "receive_windows_slot_order",
+            "receive_windows_service_order",
+            "receive_decodes_deterministic_order",
+            "ON DELETE CASCADE",
+            "outcome_kind IN",
+        ] {
+            assert!(schema.contains(required), "{required}");
+        }
+        assert!(
+            store
+                .connection
+                .execute(
+                    "INSERT INTO receive_windows (
+                        receive_window_id, service_instance_id,
+                        process_generation, stream_generation,
+                        slot_start_utc_millis, device_platform, device_opaque_id,
+                        sample_rate_hz, channels, sample_format, selected_channel,
+                        capture_position_frames, capture_utc_millis,
+                        capture_monotonic_millis, recorded_utc_millis
+                     ) VALUES (
+                        'rxw_01jabcde!', 'svc_01jabcde9',
+                        1, 1, 30000, 'macos_core_audio', 'device-1',
+                        48000, 1, 'signed_16', 0,
+                        0, 30000, 1000, 40000
+                     )",
+                    [],
+                )
+                .is_err()
+        );
     }
 
     #[test]
@@ -567,10 +639,19 @@ mod tests {
             "session_context_snapshots",
             "outbox_work",
             "external_receipts",
+            "receive_windows",
+            "receive_diagnostics",
+            "receive_decodes",
         ] {
             assert!(schema.contains(required));
         }
-        for forbidden in ["arm_token", "transmit_authority", "resumable_ptt"] {
+        for forbidden in [
+            "arm_token",
+            "transmit_authority",
+            "resumable_ptt",
+            "raw_pcm",
+            "waterfall_rows",
+        ] {
             assert!(!schema.to_ascii_lowercase().contains(forbidden));
         }
     }
@@ -583,7 +664,7 @@ mod tests {
             Store::from_connection(connection),
             Err(StorageError::SchemaTooNew {
                 found: 99,
-                supported: 1
+                supported: 2
             })
         ));
     }

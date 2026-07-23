@@ -46,9 +46,11 @@ queue. Pure fixed-point processing aligns/resamples owned batches into
 canonical FT8 windows. A production clock sampler and receive-only health gate
 reject stale, jumped, delayed, or misaligned mappings. A bounded worker-side
 spectrum/waterfall model now has explicit bin/time/magnitude units, reset
-metadata, and coalesced publication. There is still no daemon-composed
-capture, live decode or protocol event path, audio output, radio, logging,
-desktop, WSPR, or transmit implementation.
+metadata, and coalesced publication. SQLite schema version 2 now stores
+bounded receive-window context, diagnostics, and exact owned FT8
+classifications atomically. There is still no daemon-composed capture, live
+decode or protocol event path, audio output, radio, logging, desktop, WSPR, or
+transmit implementation.
 
 ## Phase 0 — workspace and contracts
 

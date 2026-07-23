@@ -17,7 +17,7 @@ This directory is the durable design record for the project.
 - [`cli-api.md`](cli-api.md): command-line and versioned command/event contract.
 - [`safety.md`](safety.md): attended-operation and transmit-safety invariants.
 - [`testing.md`](testing.md): deterministic, fault-injection, cross-platform, and hardware test strategy.
-- [`storage.md`](storage.md): Phase 0 SQLite schema, migration, and deferred-field contract.
+- [`storage.md`](storage.md): SQLite schema-v2 migration, bounded receive evidence, pagination, retention, and deferred-field contract.
 - [`ipc.md`](ipc.md): user-scoped local transport, framing, permissions, and recovery.
 - [`audio-timeline.md`](audio-timeline.md): deterministic receive resampling, slot alignment, tolerances, and fail-closed reset semantics.
 - [`receive-clock.md`](receive-clock.md): production UTC/monotonic sampling, receive health latch, alignment gate, and recovery semantics.

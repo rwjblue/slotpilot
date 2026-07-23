@@ -63,9 +63,8 @@ apps/
 ```
 
 The workspace contains `domain`, `api`, `ipc`, `protocol`, `audio`,
-`operations`, `storage`, `testkit`, `slotpilotd`, and `slotpilot`. Phase 2
-begins with an owned, receive-only `audio` contract; it contains no device
-adapter. Their allowed internal dependency graph is:
+`operations`, `storage`, `testkit`, `slotpilotd`, and `slotpilot`. Their
+current allowed internal dependency graph is:
 
 ```text
 slotpilotd ─┐
@@ -81,13 +80,18 @@ operations ───> audio
 operations ───> protocol ───> domain
 testkit ──────> audio
 testkit ──────> operations ──> protocol ──> domain
-storage ────────────────────> domain
+storage ─────> audio
+storage ─────> protocol ───> domain
+storage ───────────────────> domain
 ```
 
 `domain` and the owned `audio` contract have no internal workspace dependency.
 `protocol` may depend on `domain`; `operations` may depend on `audio`,
-`protocol`, and `domain`. `api` may depend on `domain`; the daemon and CLI
-composition shells may depend on `api`. The executable `mise run
+`protocol`, and `domain`. Storage may depend on owned `audio`, `protocol`, and
+`domain` values solely to validate and reconstruct durable records; it cannot
+import private device/FFT/protocol dependencies or operations/API types.
+`api` may depend on `domain`; the daemon and CLI composition shells may depend
+on `api`. The executable `mise run
 check-dependencies` task verifies this allow-list from Cargo's resolved graph
 and is part of `mise run ci`. Later focused issues may extend the graph only in
 the direction described below.
@@ -304,6 +308,14 @@ Only the transmit supervisor may key PTT. It validates an immutable plan against
 SQLite is authoritative for profiles, sessions, commands, events, decodes, QSO attempts, QSOs, WSPR spots/transmissions, rule evaluations, and outboxes.
 
 Persistence should favor explicit schema versions and forward migrations. The database should not persist live transmit authority.
+
+Schema version 2 normalizes receive windows, one-to-one bounded
+audio/timeline/clock diagnostics, and deterministic FT8 decode classifications.
+Stable receive identity plus service/process/stream generation, exact device
+and configuration, slot, and capture mapping define retry context. Window,
+diagnostics, and decodes commit atomically. Queries and retention are sequence
+ordered and bounded; raw PCM and bulk waterfall rows are not persisted. See
+[`storage.md`](storage.md).
 
 An outbox transactionally couples a committed domain record with pending external side effects. A successful external receipt is stored separately so restart can safely continue.
 

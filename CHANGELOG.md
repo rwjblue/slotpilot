@@ -15,6 +15,9 @@ make no compatibility promise beyond the reviewed schema and wire fixtures.
   reviewed protocol dependency, redistributable fixtures, message conformance,
   deterministic PCM synthesis, bounded RIFF/WAVE parsing, and reproducible
   static-recording decode.
+- Added bounded Phase 2 receive foundations: exact input discovery/capture,
+  deterministic resampling and slot/clock gating, a bounded spectrum model,
+  and SQLite schema version 2 for atomic receive diagnostics/classifications.
 
 RF operation is unavailable. Offline FT8 library tests do not provide live
 audio or station behavior. This version cannot operate a radio and has no

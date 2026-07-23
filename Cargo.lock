@@ -965,7 +965,9 @@ name = "slotpilot-storage"
 version = "0.1.0-dev.0"
 dependencies = [
  "rusqlite",
+ "slotpilot-audio",
  "slotpilot-domain",
+ "slotpilot-protocol",
  "thiserror 2.0.19",
 ]
 

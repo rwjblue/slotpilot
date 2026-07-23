@@ -1,10 +1,11 @@
-# Phase 0 storage contract
+# Versioned operational storage
 
-SQLite schema version 1 is the authoritative Phase 0 operational foundation.
-`slotpilot-storage` applies forward migrations inside an immediate transaction
-and rejects databases created by newer unsupported schema versions.
+SQLite schema version 2 is the authoritative operational foundation.
+`slotpilot-storage` creates version 2 from an empty database, migrates version
+1 forward inside an immediate transaction, and rejects databases created by
+newer unsupported schema versions.
 
-The schema represents:
+The Phase 0 tables continue to represent:
 
 - accepted request and command identities, canonical command bytes, and the
   exact original bounded result;
@@ -33,8 +34,43 @@ implicit jump. Event IDs remain unique, so a duplicate publication fails
 without appending another sequence. The storage crate retains SlotPilot domain
 IDs and JSON only; API envelope reconstruction belongs to the daemon boundary.
 
-Version 1 intentionally has no final FT8 QSO or WSPR field set, ADIF behavior,
-network delivery, integration credentials, live arm token, transmit authority,
-resumable PTT state, or hardware access. Later migrations must preserve these
-fail-closed recovery rules unless a focused issue and accepted safety decision
-explicitly change them.
+## Receive-only schema version 2
+
+Schema version 2 adds three normalized tables:
+
+- `receive_windows` assigns a global insertion sequence to a stable
+  `ReceiveWindowId` and stores the exact service/process/stream generations,
+  FT8 slot, stable configured device identity, selected input configuration,
+  source-frame position, UTC/monotonic capture mapping, and record time;
+- `receive_diagnostics` stores one bounded audio, timeline, and receive-clock
+  summary for every window;
+- `receive_decodes` stores at most 128 deterministic ordered FT8 results with
+  integer offset/frequency/SNR units and exact resolved, unresolved-hash,
+  unsupported-structured, ambiguous, or free-text owned classification.
+
+The receive-window identity is the retry key. A repeated exact record returns
+the existing sequence. Reuse with different content, or a different identity
+for the same service/generation/slot/device/configuration context, is a typed
+collision. The window, diagnostic row, and all decode rows are inserted in one
+immediate transaction; any constraint or injected failure rolls back all of
+them.
+
+Receive pages are globally ordered by SQLite sequence, accept only 1 through
+100 records, fetch one look-ahead row for `has_more`, and report earliest and
+latest retained cursors. Explicit pruning deletes older windows and cascades
+only to their diagnostics/decodes. Restart reconstructs every public value
+through SlotPilot-owned constructors and fails typed on malformed identity,
+classification, units, clock shape, missing diagnostics, or non-deterministic
+decode order.
+
+Clock health may be stored without decode results for diagnostic evidence.
+An unhealthy record carrying decoder-ready results is rejected. Resolved
+messages remain protocol classifications, not QSO eligibility or logging
+records.
+
+Version 2 intentionally has no raw continuous PCM, bulk waterfall rows, final
+FT8 QSO or WSPR field set, ADIF behavior, network delivery, integration
+credentials, live arm token, transmit authority, resumable PTT state, or
+hardware access. Later migrations must preserve these fail-closed recovery
+rules unless a focused issue and accepted safety decision explicitly change
+them.

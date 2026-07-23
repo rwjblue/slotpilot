@@ -13,8 +13,8 @@ pub use callsign::{
     BaseCallsign, CallsignError, FullCallsign, OperatorCallsign, OwnerCallsign, StationCallsign,
 };
 pub use ids::{
-    CommandId, EventId, IdError, ProfileRevisionId, QsoAttemptId, QsoId, RequestId,
-    ServiceInstanceId, SessionId, TransmissionId,
+    CommandId, EventId, IdError, ProfileRevisionId, QsoAttemptId, QsoId, ReceiveWindowId,
+    RequestId, ServiceInstanceId, SessionId, TransmissionId,
 };
 pub use radio::{
     AudioFrequency, Band, DialFrequency, OperatingMode, Power, RadioValueError, UtcSlot,

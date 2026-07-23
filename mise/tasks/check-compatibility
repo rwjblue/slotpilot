@@ -4,5 +4,6 @@
 set -euo pipefail
 
 cargo test -p slotpilot-api --test wire_fixtures
-cargo test -p slotpilot-storage clean_creation_and_forward_migration_reach_version_one
+cargo test -p slotpilot-storage clean_creation_reaches_schema_version_two
+cargo test -p slotpilot-storage schema_version_one_migrates_forward_with_receive_constraints_and_indexes
 cargo test -p slotpilot-storage future_schema_fails_closed
