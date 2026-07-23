@@ -62,13 +62,15 @@ apps/
   desktop/        native desktop client
 ```
 
-The bootstrapped workspace contains only `domain`, `api`, `slotpilotd`, and
-`slotpilot` compile shells. Their allowed internal dependency graph is:
+The bootstrapped workspace contains `domain`, `api`, `operations`,
+`slotpilotd`, and `slotpilot`. Their allowed internal dependency graph is:
 
 ```text
 slotpilotd ─┐
             ├──> api ──> domain
 slotpilot  ─┘
+
+operations ──> domain
 ```
 
 `domain` has no internal workspace dependency. `api` may depend on `domain`;

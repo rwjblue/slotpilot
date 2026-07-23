@@ -110,6 +110,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "slotpilot-operations"
+version = "0.1.0"
+dependencies = [
+ "slotpilot-domain",
+ "thiserror",
+]
+
+[[package]]
 name = "slotpilotd"
 version = "0.1.0"
 dependencies = [

@@ -35,6 +35,7 @@ assert_workspace_dependencies() {
 expected_packages="slotpilot
 slotpilot-api
 slotpilot-domain
+slotpilot-operations
 slotpilotd"
 actual_packages="$(
   cargo tree \
@@ -55,6 +56,7 @@ if [[ "${actual_packages}" != "${expected_packages}" ]]; then
 fi
 
 assert_workspace_dependencies "slotpilot-domain" ""
+assert_workspace_dependencies "slotpilot-operations" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
 assert_workspace_dependencies "slotpilotd" "slotpilot-api"
 assert_workspace_dependencies "slotpilot" "slotpilot-api"

@@ -28,6 +28,13 @@ All slot-bound code receives a clock abstraction. Tests can:
 - expire authority without sleeping;
 - replay multiple minutes of queue behavior quickly.
 
+`slotpilot-operations` represents UTC and process-local monotonic time as
+integer milliseconds sampled together. Future slots are converted to
+`MonotonicDeadline` values before scheduling. `ClockMonitor` latches a typed
+unhealthy state when UTC and monotonic progress diverge beyond its configured
+tolerance. `VirtualClock` advances explicitly and can inject UTC-only jumps;
+it never sleeps and does not schedule work or grant authority.
+
 ### Protocol fixtures
 
 Maintain reviewed fixtures for:

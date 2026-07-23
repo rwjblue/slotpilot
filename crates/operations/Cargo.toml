@@ -1,0 +1,15 @@
+[package]
+name = "slotpilot-operations"
+description = "Deterministic SlotPilot operating coordination contracts"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+slotpilot-domain.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true
