@@ -51,6 +51,22 @@ FT8 fixtures are established on the Phase 1 critical path. Equivalent WSPR
 fixtures are added in Phase 8 before any WSPR live receive or transmit behavior
 is accepted.
 
+The reviewed Phase 1 corpus is `fixtures/ft8/v1/manifest.json`. WSJT-X 3.0.0
+is the sole authoritative reference for version 1; supplemental JTDX or
+aggressive-decoder observations are explicitly absent. The manifest records the
+official artifact checksum, exact `ft8code`, `ft8sim`, and `jt9` settings,
+fixture provenance and license, neutral 77-bit protocol facts, file checksums,
+decode units, tolerances, recall floors, and permitted extras. Its two compact
+recordings are offline-generated data: one clean signal and one noisy,
+overlapping window. Passing them makes no broader compatibility or sensitivity
+claim.
+
+The fixture README defines the intentional refresh process. Ordinary CI parses
+the manifest, validates its schema and units, checks every SHA-256 and WAV
+header, and rejects missing provenance, duplicate identities, malformed data,
+or dependency-specific golden serialization. It does not download fixtures or
+execute WSJT-X/JTDX.
+
 `slotpilot-protocol` owns the FT8 fixture-facing vocabulary. A decoded outcome
 is exactly one of resolved supported, unresolved hash, unsupported structured,
 ambiguous, or free text. Only the resolved variant can pass its checked

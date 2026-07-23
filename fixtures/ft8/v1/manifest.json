@@ -1,0 +1,288 @@
+{
+  "schema_version": 1,
+  "compatibility_claim": "These cases are a bounded WSJT-X 3.0.0 reference matrix for SlotPilot Phase 1. They are not a sensitivity benchmark or a claim of general WSJT-X or JTDX parity.",
+  "reference": {
+    "authority": "wsjt_x_authoritative",
+    "program": "WSJT-X",
+    "version": "3.0.0",
+    "source_project_url": "https://sourceforge.net/projects/wsjt/",
+    "release_artifact_url": "https://sourceforge.net/projects/wsjt/files/wsjtx-3.0.0/wsjtx-3.0.0-ARM-Darwin.dmg/download",
+    "release_artifact_sha256": "f9d95aad28e4da29b6f1d1fdf75647ecffe68162f3edc9e13d1984645bb21a37",
+    "license": "GNU GPL version 3; generated fixture outputs are redistributed under GPL-3.0-or-later",
+    "reviewed_on": "2026-07-23",
+    "message_settings": "ft8code from WSJT-X 3.0.0 with its default single-message invocation",
+    "decode_settings": "jt9 -8 -d 3 -m 1 with empty writable data and temporary directories",
+    "notes": "WSJT-X is the authoritative reference. No JTDX or aggressive-decoder observation is included in version 1."
+  },
+  "supplemental_observations": [],
+  "message_vectors": [
+    {
+      "id": "ordinary-cq-grid",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "CQ K1ABC FN42",
+      "canonical_text": "CQ K1ABC FN42",
+      "outcome": "resolved",
+      "message_class": "general_call",
+      "sender": "K1ABC",
+      "recipient": null,
+      "exactly_representable": true,
+      "payload_bits": "00000000000000000000000000100000010011011110111100011010100010100001100110001",
+      "notes": "Ordinary CQ with four-character Maidenhead grid."
+    },
+    {
+      "id": "ordinary-directed-grid",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "W1AW K1ABC FN42",
+      "canonical_text": "W1AW K1ABC FN42",
+      "outcome": "resolved",
+      "message_class": "directed_grid",
+      "sender": "W1AW",
+      "recipient": "K1ABC",
+      "exactly_representable": true,
+      "payload_bits": "00001011111111101010110100010000010011011110111100011010100010100001100110001",
+      "notes": "Directed grid exchange."
+    },
+    {
+      "id": "ordinary-signal-report",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "K1ABC W1AW -12",
+      "canonical_text": "K1ABC W1AW -12",
+      "outcome": "resolved",
+      "message_class": "signal_report",
+      "sender": "K1ABC",
+      "recipient": "W1AW",
+      "exactly_representable": true,
+      "payload_bits": "00001001101111011110001101010000010111111111010101101000100111111010100111001",
+      "notes": "Directed negative signal report."
+    },
+    {
+      "id": "ordinary-roger-report",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "W1AW K1ABC R-08",
+      "canonical_text": "W1AW K1ABC R-08",
+      "outcome": "resolved",
+      "message_class": "roger_signal_report",
+      "sender": "W1AW",
+      "recipient": "K1ABC",
+      "exactly_representable": true,
+      "payload_bits": "00001011111111101010110100010000010011011110111100011010101111111010101011001",
+      "notes": "Directed roger plus report."
+    },
+    {
+      "id": "ordinary-rrr",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "K1ABC W1AW RRR",
+      "canonical_text": "K1ABC W1AW RRR",
+      "outcome": "resolved",
+      "message_class": "roger",
+      "sender": "K1ABC",
+      "recipient": "W1AW",
+      "exactly_representable": true,
+      "payload_bits": "00001001101111011110001101010000010111111111010101101000100111111010010010001",
+      "notes": "Directed acknowledgement."
+    },
+    {
+      "id": "ordinary-73",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "W1AW K1ABC 73",
+      "canonical_text": "W1AW K1ABC 73",
+      "outcome": "resolved",
+      "message_class": "ending_73",
+      "sender": "W1AW",
+      "recipient": "K1ABC",
+      "exactly_representable": true,
+      "payload_bits": "00001011111111101010110100010000010011011110111100011010100111111010010100001",
+      "notes": "Directed 73 ending."
+    },
+    {
+      "id": "ordinary-rr73",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "K1ABC W1AW RR73",
+      "canonical_text": "K1ABC W1AW RR73",
+      "outcome": "resolved",
+      "message_class": "ending_rr73",
+      "sender": "K1ABC",
+      "recipient": "W1AW",
+      "exactly_representable": true,
+      "payload_bits": "00001001101111011110001101010000010111111111010101101000100111111001110101001",
+      "notes": "Directed RR73 ending."
+    },
+    {
+      "id": "special-compound-cq",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "CQ W1AW/1",
+      "canonical_text": "CQ W1AW/1",
+      "outcome": "resolved",
+      "message_class": "general_call",
+      "sender": "W1AW/1",
+      "recipient": null,
+      "exactly_representable": true,
+      "payload_bits": "10101000011100000000000000000000000000100111000010001110101011111011000001100",
+      "notes": "Exact Type-4 non-standard-call representation. This proves protocol representability only; later QSO planning remains deferred."
+    },
+    {
+      "id": "special-hashed-resolved",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "<W1AW/1> K1ABC -12",
+      "canonical_text": "<W1AW/1> K1ABC -12",
+      "outcome": "resolved",
+      "message_class": "signal_report",
+      "sender": "W1AW/1",
+      "recipient": "K1ABC",
+      "exactly_representable": true,
+      "payload_bits": "00000100100110011010101001010000010011011110111100011010100111111010100111001",
+      "notes": "WSJT-X represents the compound sender through a callsign hash. Resolution requires prior hash knowledge and does not imply QSO-sequencing support."
+    },
+    {
+      "id": "special-hashed-unresolved",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "<W1AW/1> K1ABC -12",
+      "canonical_text": "<...> K1ABC -12",
+      "outcome": "unresolved_hash",
+      "message_class": null,
+      "sender": null,
+      "recipient": "K1ABC",
+      "exactly_representable": true,
+      "payload_bits": "00000100100110011010101001010000010011011110111100011010100111111010100111001",
+      "notes": "Expected owned result when the same payload is decoded without a matching hash-table entry."
+    },
+    {
+      "id": "special-plain-not-representable",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "CQ W1AW/1 FN31",
+      "canonical_text": "CQ W1AW FN31",
+      "outcome": "unsupported",
+      "message_class": null,
+      "sender": "W1AW/1",
+      "recipient": null,
+      "exactly_representable": false,
+      "payload_bits": "00000000000000000000000000100000010111111111010101101000100010100001011011001",
+      "notes": "WSJT-X 3.0.0 drops the suffix in this unbracketed form, so SlotPilot must reject it as not exactly representable rather than silently changing identity."
+    },
+    {
+      "id": "free-text",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "HELLO WORLD",
+      "canonical_text": "HELLO WORLD",
+      "outcome": "free_text",
+      "message_class": null,
+      "sender": null,
+      "recipient": null,
+      "exactly_representable": true,
+      "payload_bits": "00000000000010001011010101101001100000011011100110110001010100000010010000000",
+      "notes": "Representable FT8 free text remains non-resolved for SlotPilot."
+    },
+    {
+      "id": "unsupported-telemetry",
+      "reference_authority": "wsjt_x_authoritative",
+      "input_text": "0123456789ABCDEF01",
+      "canonical_text": "123456789ABCDEF01",
+      "outcome": "unsupported",
+      "message_class": null,
+      "sender": null,
+      "recipient": null,
+      "exactly_representable": false,
+      "payload_bits": "00000010010001101000101011001111000100110101011110011011110111100000001101000",
+      "notes": "WSJT-X classifies this as telemetry and normalizes away the leading zero; telemetry is outside SlotPilot Phase 1."
+    },
+    {
+      "id": "owned-ambiguous-boundary",
+      "reference_authority": "slotpilot_boundary_only",
+      "input_text": "K1ABC W1AW",
+      "canonical_text": "K1ABC W1AW",
+      "outcome": "ambiguous",
+      "message_class": null,
+      "sender": "K1ABC",
+      "recipient": "W1AW",
+      "exactly_representable": false,
+      "payload_bits": null,
+      "notes": "Boundary-only negative case: insufficient protocol meaning must remain ambiguous. It is not claimed as a WSJT-X decode expectation."
+    }
+  ],
+  "recordings": [
+    {
+      "id": "clean-cq-k1abc-fn42",
+      "path": "audio/clean-cq-k1abc-fn42.wav",
+      "purpose": "Single clean known FT8 recording.",
+      "origin": "Generated offline by WSJT-X 3.0.0 ft8sim; the checked bytes, not a live recording, are the fixture authority.",
+      "generation_command": "ft8sim \"CQ K1ABC FN42\" 1000 0 0 1 1 -10",
+      "license": "GPL-3.0-or-later",
+      "sha256": "9de348a04dc1f815b375eb4814684f3825b9322d651cde0eb8214bbba9f20c59",
+      "byte_length": 360044,
+      "format": {
+        "sample_rate_hz": 12000,
+        "channels": 1,
+        "bits_per_sample": 16,
+        "duration_millis": 15000
+      },
+      "expected_decodes": [
+        {
+          "canonical_text": "CQ K1ABC FN42",
+          "outcome": "resolved",
+          "message_class": "general_call",
+          "sender": "K1ABC",
+          "recipient": null,
+          "audio_frequency_hz": 1000,
+          "start_offset_millis": 0,
+          "signal_to_noise_db": -10
+        }
+      ],
+      "tolerance": {
+        "audio_frequency_hz": 2,
+        "start_offset_millis": 100,
+        "signal_to_noise_db": 3
+      },
+      "minimum_recall": 1,
+      "maximum_extras": 0,
+      "permitted_extra_messages": []
+    },
+    {
+      "id": "noisy-overlap-three-signals",
+      "path": "audio/noisy-overlap-three-signals.wav",
+      "purpose": "Noisy overlapping window with three independently generated FT8 signals; WSJT-X 3.0.0 Deep reference decoding recalls two.",
+      "origin": "Three WSJT-X 3.0.0 ft8sim outputs mixed offline with FFmpeg 8.1; no live station or captured operator data.",
+      "generation_command": "ft8sim components: \"CQ K1ABC FN42\" 700 0 0 1 1 -12; \"W1AW K1ABC -12\" 1200 0.1 0 1 1 -14; \"K1ABC W1AW RR73\" 1700 -0.1 0 1 1 -16. Mix: ffmpeg 8.1 amix=inputs=3:duration=longest:normalize=0, 12000 Hz mono pcm_s16le.",
+      "license": "GPL-3.0-or-later",
+      "sha256": "2e1eb0bfb7198101250221b759261a79ed1f96d5603a99ad0e91056cb4bd49ca",
+      "byte_length": 360078,
+      "format": {
+        "sample_rate_hz": 12000,
+        "channels": 1,
+        "bits_per_sample": 16,
+        "duration_millis": 15000
+      },
+      "expected_decodes": [
+        {
+          "canonical_text": "CQ K1ABC FN42",
+          "outcome": "resolved",
+          "message_class": "general_call",
+          "sender": "K1ABC",
+          "recipient": null,
+          "audio_frequency_hz": 701,
+          "start_offset_millis": 0,
+          "signal_to_noise_db": -16
+        },
+        {
+          "canonical_text": "W1AW K1ABC -12",
+          "outcome": "resolved",
+          "message_class": "signal_report",
+          "sender": "W1AW",
+          "recipient": "K1ABC",
+          "audio_frequency_hz": 1200,
+          "start_offset_millis": 100,
+          "signal_to_noise_db": -18
+        }
+      ],
+      "tolerance": {
+        "audio_frequency_hz": 3,
+        "start_offset_millis": 150,
+        "signal_to_noise_db": 4
+      },
+      "minimum_recall": 2,
+      "maximum_extras": 1,
+      "permitted_extra_messages": [
+        "K1ABC W1AW RR73"
+      ]
+    }
+  ]
+}
