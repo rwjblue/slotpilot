@@ -22,6 +22,7 @@ publish = false
 
 [workspace.dependencies]
 anyhow = "1.0.104"
+cpal = { version = "=0.18.1", default-features = false }
 fs2 = "0.4.3"
 interprocess = "2.4.2"
 mfsk-core = { version = "=0.7.4", default-features = false, features = ["ft8", "fft-rustfft"] }

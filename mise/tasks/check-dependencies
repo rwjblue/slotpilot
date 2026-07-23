@@ -112,6 +112,54 @@ if ! grep -Fq \
   exit 1
 fi
 
+actual_cpal_features="$(
+  cargo tree \
+    --package slotpilot-audio \
+    --edges features \
+    --prefix none |
+    awk '$1 == "cpal" && $2 == "feature" {
+      gsub(/"/, "", $3)
+      print $3
+    }' |
+    LC_ALL=C sort -u
+)"
+if [[ -n "${actual_cpal_features}" ]]; then
+  echo "unexpected CPAL optional feature surface" >&2
+  echo "${actual_cpal_features}" >&2
+  exit 1
+fi
+
+if ! grep -Fq \
+  'cpal = { version = "=0.18.1", default-features = false }' \
+  Cargo.toml; then
+  echo "CPAL must remain exactly pinned with optional/default features disabled" >&2
+  exit 1
+fi
+
+expected_cpal_import="crates/audio/src/discovery.rs"
+actual_cpal_imports="$(
+  find crates apps \
+    -type f \
+    -name '*.rs' \
+    -exec grep -l 'cpal::' {} + |
+    LC_ALL=C sort
+)"
+if [[ "${actual_cpal_imports}" != "${expected_cpal_import}" ]]; then
+  echo "CPAL imports escaped the private receive discovery adapter" >&2
+  echo "expected:" >&2
+  echo "${expected_cpal_import}" >&2
+  echo "actual:" >&2
+  echo "${actual_cpal_imports:-<none>}" >&2
+  exit 1
+fi
+
+if grep -En \
+  'default_input_device|default_output_device|build_(input|output)_stream' \
+  crates/audio/src/discovery.rs; then
+  echo "receive discovery gained default-device selection or stream creation" >&2
+  exit 1
+fi
+
 expected_dependency_import="crates/protocol/src/offline_adapter.rs"
 actual_dependency_imports="$(
   find crates apps \
@@ -166,7 +214,7 @@ if find \
   -type f \
   -name '*.rs' \
   -exec grep -En \
-    'std::process|std::net|std::fs|Command::new|cpal|mfsk_core|hamlib|rigctld|serialport' \
+    'std::process|std::net|std::fs|Command::new|mfsk_core|hamlib|rigctld|serialport' \
     {} +; then
   echo "owned receive-audio contracts gained a process, I/O, device, protocol, or rig path" >&2
   exit 1

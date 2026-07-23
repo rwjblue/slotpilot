@@ -40,9 +40,9 @@ foundation tracked by
 [Phase 1 tracker #16](https://github.com/rwjblue/slotpilot/issues/16) records
 the owned offline FT8 contract, reviewed dependency/fixtures, message adapter,
 PCM synthesis, WAV decode, and bounded conformance evidence. The repository has
-dependency-free owned receive-audio contracts and deterministic fakes, but no
-device adapter, live audio or protocol event path, radio, logging, desktop,
-WSPR, or transmit implementation.
+owned receive-audio contracts, deterministic fakes, and stable input-device
+discovery, but no input stream/capture, live decode or protocol event path,
+radio, logging, desktop, WSPR, or transmit implementation.
 
 ## Phase 0 — workspace and contracts
 

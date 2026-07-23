@@ -8,6 +8,7 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+cpal.workspace = true
 thiserror.workspace = true
 
 [lints]

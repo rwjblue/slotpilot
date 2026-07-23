@@ -123,9 +123,10 @@ The test kit provides deterministic implementations that can inject:
 - clipping, overrun, underrun, and callback delay;
 - sample-clock drift and latency changes.
 
-`slotpilot-audio` owns dependency-free receive device identity, configuration,
-generation, source-frame position, UTC/monotonic mapping, bounded batch,
-canonical FT8 window, health, discontinuity, and fault values.
+`slotpilot-audio` owns receive device identity, configuration, generation,
+source-frame position, UTC/monotonic mapping, bounded batch, canonical FT8
+window, health, discontinuity, and fault values without exposing dependency
+types.
 `slotpilot-operations` owns the consumer port and
 `slotpilot-testkit` supplies an in-memory `FakeInputAudio`. Tests enqueue normal
 batches and timestamped device loss, overflow, discontinuity, drift, clipping,
@@ -134,6 +135,14 @@ Sequence tests reject generation changes, overlap/regression, unmarked gaps,
 and monotonic regression; explicit discontinuities remain visible. The fake
 allocates no physical resource and has no device-discovery, playback,
 protocol-decode, persistence, rig, PTT, or RF path.
+
+The Phase 2 discovery adapter pins CPAL 0.18.1 with no optional features. Unit
+tests map every supported PCM sample format and typed backend error, validate
+bounded rate/channel ranges, and prove duplicate display names retain distinct
+stable identities without opening a stream. The repository's macOS, Windows,
+and Linux matrix compile-tests the private native adapter. Ordinary tests do
+not enumerate or require a physical device; physical permission, identity,
+and device-loss evidence remains the separate human-required Phase 2 gate.
 
 Protocol samples remain deterministic placeholders, not FT8/WSPR algorithms or
 device output. The emergency-unkey fake records a logical request and can

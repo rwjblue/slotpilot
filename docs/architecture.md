@@ -176,14 +176,27 @@ A reference-process or fixture-based adapter may be used only in testing to comp
 
 ## Audio boundary
 
-CPAL is the planned cross-platform stream layer. Real-time callbacks move samples to and from bounded preallocated queues. Resampling, FFTs, decode work, logging, and rig interaction occur elsewhere.
+CPAL 0.18.1 is the reviewed cross-platform audio layer, pinned exactly with
+optional and default features disabled. Its private receive discovery adapter
+enumerates the standard Core Audio, WASAPI, or ALSA host, maps supported input
+configuration ranges into owned values, and uses CPAL's host-qualified stable
+device ID for exact lookup. It never calls a default-device selector. A
+missing identity, permission denial, host failure, device disappearance,
+unsupported configuration, or empty input set remains a distinct typed
+result. The maintained dependency review is
+[`dependencies/cpal-0.18.1.md`](dependencies/cpal-0.18.1.md).
+
+Later real-time callbacks move samples to and from bounded preallocated queues.
+Resampling, FFTs, decode work, logging, and rig interaction occur elsewhere.
 
 A timestamped audio timeline maps device samples into protocol windows. Transmit waveforms are fully prepared before their slot deadline and placed at a deterministic sample position.
 
-Platform adapters provide stable device identities and permission/setup behavior.
+Platform adapters provide stable device identities and permission/setup
+behavior. Discovery may enumerate input devices but opens no stream and cannot
+select by display name.
 
-The initial Phase 2 contract is receive-only and dependency-free. Stable input
-identity is an opaque platform value structurally separate from display
+The owned Phase 2 contract remains independent of device-library types. Stable
+input identity is an opaque platform value structurally separate from display
 metadata; display names can never select or recover a device. Checked input
 configurations record sample rate, channel count and selection, and source
 sample format. Bounded normalized batches carry process/stream generations,

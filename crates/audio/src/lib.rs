@@ -6,6 +6,10 @@
 
 use thiserror::Error;
 
+mod discovery;
+
+pub use discovery::SystemInputDiscovery;
+
 /// Canonical FT8 receive sample rate shared with the offline protocol contract.
 pub const FT8_RECEIVE_SAMPLE_RATE_HZ: u32 = 12_000;
 /// Canonical number of mono samples in one complete FT8 receive slot.
@@ -115,14 +119,108 @@ impl InputDeviceDisplay {
 }
 
 /// Owned sample representation reported by an input configuration.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum InputSampleFormat {
+    /// Signed 8-bit integer samples.
+    Signed8,
     /// Signed 16-bit integer samples.
     Signed16,
+    /// Signed 24-bit integer samples in a 32-bit container.
+    Signed24,
+    /// Signed 32-bit integer samples.
+    Signed32,
+    /// Signed 64-bit integer samples.
+    Signed64,
+    /// Unsigned 8-bit integer samples.
+    Unsigned8,
     /// Unsigned 16-bit integer samples.
     Unsigned16,
+    /// Unsigned 24-bit integer samples in a 32-bit container.
+    Unsigned24,
+    /// Unsigned 32-bit integer samples.
+    Unsigned32,
+    /// Unsigned 64-bit integer samples.
+    Unsigned64,
     /// IEEE 754 32-bit floating-point samples.
     Float32,
+    /// IEEE 754 64-bit floating-point samples.
+    Float64,
+}
+
+/// Checked range of input configurations exposed by discovery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct InputConfigurationRange {
+    min_sample_rate_hz: u32,
+    max_sample_rate_hz: u32,
+    channels: u16,
+    sample_format: InputSampleFormat,
+}
+
+impl InputConfigurationRange {
+    /// Constructs a checked inclusive sample-rate range.
+    pub fn new(
+        min_sample_rate_hz: u32,
+        max_sample_rate_hz: u32,
+        channels: u16,
+        sample_format: InputSampleFormat,
+    ) -> Result<Self, ReceiveAudioError> {
+        if min_sample_rate_hz > max_sample_rate_hz
+            || !(MIN_SAMPLE_RATE_HZ..=MAX_SAMPLE_RATE_HZ).contains(&min_sample_rate_hz)
+            || !(MIN_SAMPLE_RATE_HZ..=MAX_SAMPLE_RATE_HZ).contains(&max_sample_rate_hz)
+        {
+            return Err(ReceiveAudioError::InvalidSampleRate);
+        }
+        if channels == 0 || channels > MAX_INPUT_CHANNELS {
+            return Err(ReceiveAudioError::InvalidChannelCount);
+        }
+        Ok(Self {
+            min_sample_rate_hz,
+            max_sample_rate_hz,
+            channels,
+            sample_format,
+        })
+    }
+
+    /// Returns the inclusive minimum supported sample rate.
+    #[must_use]
+    pub const fn min_sample_rate_hz(self) -> u32 {
+        self.min_sample_rate_hz
+    }
+
+    /// Returns the inclusive maximum supported sample rate.
+    #[must_use]
+    pub const fn max_sample_rate_hz(self) -> u32 {
+        self.max_sample_rate_hz
+    }
+
+    /// Returns the supported interleaved channel count.
+    #[must_use]
+    pub const fn channels(self) -> u16 {
+        self.channels
+    }
+
+    /// Returns the supported source sample representation.
+    #[must_use]
+    pub const fn sample_format(self) -> InputSampleFormat {
+        self.sample_format
+    }
+
+    /// Selects one exact sample rate and zero-based channel from this range.
+    pub fn select(
+        self,
+        sample_rate_hz: u32,
+        selected_channel: u16,
+    ) -> Result<InputConfiguration, ReceiveAudioError> {
+        if !(self.min_sample_rate_hz..=self.max_sample_rate_hz).contains(&sample_rate_hz) {
+            return Err(ReceiveAudioError::InvalidSampleRate);
+        }
+        InputConfiguration::new(
+            sample_rate_hz,
+            self.channels,
+            self.sample_format,
+            selected_channel,
+        )
+    }
 }
 
 /// Checked receive-only input stream configuration.
@@ -189,7 +287,7 @@ impl InputConfiguration {
 pub struct InputDeviceDescriptor {
     identity: InputDeviceIdentity,
     display: InputDeviceDisplay,
-    configurations: Vec<InputConfiguration>,
+    configuration_ranges: Vec<InputConfigurationRange>,
 }
 
 impl InputDeviceDescriptor {
@@ -197,15 +295,16 @@ impl InputDeviceDescriptor {
     pub fn new(
         identity: InputDeviceIdentity,
         display: InputDeviceDisplay,
-        configurations: Vec<InputConfiguration>,
+        configuration_ranges: Vec<InputConfigurationRange>,
     ) -> Result<Self, ReceiveAudioError> {
-        if configurations.is_empty() || configurations.len() > MAX_DEVICE_CONFIGURATIONS {
+        if configuration_ranges.is_empty() || configuration_ranges.len() > MAX_DEVICE_CONFIGURATIONS
+        {
             return Err(ReceiveAudioError::InvalidConfigurationCount);
         }
         Ok(Self {
             identity,
             display,
-            configurations,
+            configuration_ranges,
         })
     }
 
@@ -223,9 +322,47 @@ impl InputDeviceDescriptor {
 
     /// Returns bounded supported receive configurations.
     #[must_use]
-    pub fn configurations(&self) -> &[InputConfiguration] {
-        &self.configurations
+    pub fn configuration_ranges(&self) -> &[InputConfigurationRange] {
+        &self.configuration_ranges
     }
+}
+
+/// Receive-only device discovery boundary.
+pub trait InputDeviceDiscovery {
+    /// Enumerates all input-capable devices with stable identities.
+    fn enumerate(&self) -> Result<Vec<InputDeviceDescriptor>, InputDiscoveryError>;
+
+    /// Looks up one exact stable identity without default or name fallback.
+    fn find(
+        &self,
+        identity: &InputDeviceIdentity,
+    ) -> Result<InputDeviceDescriptor, InputDiscoveryError>;
+}
+
+/// Typed failure from receive-only device discovery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum InputDiscoveryError {
+    /// The platform audio host is not available.
+    #[error("input audio host is unavailable")]
+    HostUnavailable,
+    /// The operating system denied input-device access.
+    #[error("input audio permission denied")]
+    PermissionDenied,
+    /// A previously visible or selected device disappeared.
+    #[error("input device disappeared")]
+    DeviceDisappeared,
+    /// A device exposes no supported bounded PCM configuration.
+    #[error("input device has no supported configuration")]
+    UnsupportedConfiguration,
+    /// The backend could not provide a stable identity.
+    #[error("stable input device identity is unavailable")]
+    IdentityUnavailable,
+    /// No input-capable devices were found.
+    #[error("no input-capable device was found")]
+    NoInputDevices,
+    /// The backend failed without a stable implementation type escaping.
+    #[error("input discovery backend failed")]
+    BackendFailure,
 }
 
 /// Daemon-process generation for capture state.
@@ -664,7 +801,7 @@ pub enum CaptureSequenceError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum ReceiveAudioError {
     /// Stable platform identity was empty, invalid, or oversized.
-    #[error("stable input identity must be bounded printable ASCII")]
+    #[error("stable input identity must be bounded non-control text")]
     InvalidStableIdentity,
     /// Display metadata was empty, invalid, or oversized.
     #[error("input display metadata must be bounded printable text")]
@@ -720,11 +857,7 @@ pub enum ReceiveAudioError {
 }
 
 fn validate_bounded_text(value: &str, max_bytes: usize) -> Result<(), ()> {
-    if value.is_empty()
-        || value.len() > max_bytes
-        || !value.is_ascii()
-        || value.bytes().any(|byte| !(0x20..=0x7e).contains(&byte))
-    {
+    if value.is_empty() || value.len() > max_bytes || value.chars().any(char::is_control) {
         return Err(());
     }
     Ok(())
@@ -763,8 +896,10 @@ mod tests {
     fn display_metadata_cannot_be_used_as_stable_identity() {
         let identity = InputDeviceIdentity::new(InputPlatform::MacOsCoreAudio, "uid:123").unwrap();
         let display = InputDeviceDisplay::new("USB Audio", None).unwrap();
+        let range =
+            InputConfigurationRange::new(48_000, 48_000, 2, InputSampleFormat::Float32).unwrap();
         let descriptor =
-            InputDeviceDescriptor::new(identity.clone(), display, vec![config(2)]).unwrap();
+            InputDeviceDescriptor::new(identity.clone(), display, vec![range]).unwrap();
         assert_eq!(descriptor.identity(), &identity);
         assert_eq!(descriptor.display().name(), "USB Audio");
         assert_ne!(

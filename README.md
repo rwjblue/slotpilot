@@ -14,11 +14,12 @@ All clients use the same versioned command/event API. No capability should exist
 
 > [!IMPORTANT]
 > This repository contains the Phase 0 local service foundation, the Phase 1
-> offline FT8 protocol harness, and initial dependency-free Phase 2
-> receive-audio contracts and fakes. Static/in-memory FT8 messages, waveforms,
+> offline FT8 protocol harness, and initial owned Phase 2 receive-audio
+> contracts, discovery, and fakes. Static/in-memory FT8 messages, waveforms,
 > reviewed WAV fixtures, and bounded synthetic capture batches can be
-> processed in tests, but no audio device, microphone, radio, PTT, live
-> receive, logging, transmit, WSPR, or desktop behavior is available; live
+> processed in tests. Receive-only device discovery can enumerate stable input
+> identities, but no stream or microphone capture, radio, PTT, live decode,
+> logging, transmit, WSPR, or desktop behavior is available; live
 > station capability remains unavailable. Do not treat the repository or its
 > unsigned local artifacts as safe for on-air use.
 

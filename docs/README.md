@@ -21,6 +21,7 @@ This directory is the durable design record for the project.
 - [`ipc.md`](ipc.md): user-scoped local transport, framing, permissions, and recovery.
 - [`development-release.md`](development-release.md): pinned setup, no-op handshake, and unsigned local artifacts.
 - [`dependencies/mfsk-core-0.7.4.md`](dependencies/mfsk-core-0.7.4.md): exact offline FT8 dependency review and upgrade procedure.
+- [`dependencies/cpal-0.18.1.md`](dependencies/cpal-0.18.1.md): exact receive-audio dependency, stable-identity, platform, and upgrade review.
 - [`roadmap.md`](roadmap.md): implementation phases and exit criteria.
 - [`work-tracking.md`](work-tracking.md): issue structure, labels, and dependency practices.
 - [`backlog/phase-0.md`](backlog/phase-0.md): issue-ready initial work.

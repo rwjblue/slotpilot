@@ -74,8 +74,9 @@ When explicitly handed a GitHub issue:
 
 ## Current repository state
 
-Phases 0 and 1 are complete. Phase 2 has begun with dependency-free,
-receive-only audio contracts and deterministic fakes; no device adapter exists.
+Phases 0 and 1 are complete. Phase 2 has begun with owned receive-only audio
+contracts, deterministic fakes, and stable input-device discovery; no stream or
+capture path exists.
 The repository has a development-only no-op
 daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
 and hardware test seams, initial SQLite durability, and the complete repository
