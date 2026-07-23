@@ -12,12 +12,22 @@ use slotpilot_domain::{AudioFrequency, FullCallsign};
 use thiserror::Error;
 
 pub use offline_adapter::OfflineFt8Codec;
+pub use offline_adapter::OfflineFt8Synthesizer;
 
 /// Number of information bits in one packed FT8 message.
 pub const FT8_MESSAGE_BITS: usize = 77;
 
 /// Nominal duration of an FT8 scheduling slot.
 pub const FT8_SLOT_MILLIS: u32 = 15_000;
+
+/// Canonical sample rate for Phase 1 FT8 PCM.
+pub const FT8_PCM_SAMPLE_RATE_HZ: u32 = 12_000;
+
+/// Samples in one 79-symbol FT8 frame at the canonical sample rate.
+pub const FT8_FRAME_SAMPLES: u32 = 151_680;
+
+/// Samples in one nominal 15-second slot at the canonical sample rate.
+pub const FT8_SLOT_SAMPLES: u32 = 180_000;
 
 /// Maximum number of interleaved samples accepted by an owned offline buffer.
 pub const MAX_OFFLINE_PCM_SAMPLES: usize = 24_000_000;
@@ -660,6 +670,60 @@ pub enum Ft8WaveformError {
     /// Owned PCM construction failed.
     #[error(transparent)]
     Pcm(#[from] PcmError),
+}
+
+/// Typed offline RIFF/WAVE export failure.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum PcmWaveError {
+    /// The encoded RIFF or PCM size exceeded its 32-bit field.
+    #[error("PCM buffer is too large for a RIFF/WAVE file")]
+    FileTooLarge,
+}
+
+/// Encodes a checked PCM buffer as an in-memory RIFF/WAVE file.
+///
+/// This helper performs no file, device, playback, or permission operation.
+pub fn encode_pcm_wave(buffer: &PcmBuffer) -> Result<Vec<u8>, PcmWaveError> {
+    let sample_bytes = buffer
+        .samples()
+        .len()
+        .checked_mul(size_of::<i16>())
+        .and_then(|length| u32::try_from(length).ok())
+        .ok_or(PcmWaveError::FileTooLarge)?;
+    let riff_size = 36_u32
+        .checked_add(sample_bytes)
+        .ok_or(PcmWaveError::FileTooLarge)?;
+    let format = buffer.format();
+    let block_align = format
+        .channels()
+        .checked_mul(2)
+        .ok_or(PcmWaveError::FileTooLarge)?;
+    let byte_rate = format
+        .sample_rate_hz()
+        .checked_mul(u32::from(block_align))
+        .ok_or(PcmWaveError::FileTooLarge)?;
+    let capacity = usize::try_from(riff_size)
+        .ok()
+        .and_then(|size| size.checked_add(8))
+        .ok_or(PcmWaveError::FileTooLarge)?;
+
+    let mut bytes = Vec::with_capacity(capacity);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&riff_size.to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16_u32.to_le_bytes());
+    bytes.extend_from_slice(&1_u16.to_le_bytes());
+    bytes.extend_from_slice(&format.channels().to_le_bytes());
+    bytes.extend_from_slice(&format.sample_rate_hz().to_le_bytes());
+    bytes.extend_from_slice(&byte_rate.to_le_bytes());
+    bytes.extend_from_slice(&block_align.to_le_bytes());
+    bytes.extend_from_slice(&16_u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&sample_bytes.to_le_bytes());
+    for sample in buffer.samples() {
+        bytes.extend_from_slice(&sample.to_le_bytes());
+    }
+    Ok(bytes)
 }
 
 impl Ft8WaveformError {

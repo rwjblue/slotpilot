@@ -153,6 +153,12 @@ owned metadata and canonical text rather than adapter worker order. It does
 not select callers, log QSOs, control PTT, or decide whether a message may
 advance an exchange.
 
+Phase 1 waveform synthesis accepts only resolved supported messages and emits
+canonical mono signed 16-bit PCM at 12,000 Hz. One FT8 frame is 151,680 samples
+(12.64 seconds). Frame-only output is distinct from explicit placement within a
+180,000-sample (15-second) offline slot. The in-memory RIFF/WAVE helper only
+serializes a checked buffer; it does not write, select, or play an audio device.
+
 A reference-process or fixture-based adapter may be used only in testing to compare known behavior.
 
 ## Audio boundary

@@ -69,6 +69,15 @@ as non-resolved outcomes. The `RR73` grid/response collision is classified from
 the packed field rather than text, preventing a valid `RR73` locator from
 masquerading as an ending.
 
+Offline waveform tests synthesize the independently reviewed ordinary CQ and
+Type 4 `CQ W1AW/1` message bits. The canonical output is mono signed 16-bit PCM
+at 12,000 Hz: 151,680 samples for the 79-symbol frame or 180,000 samples for an
+explicitly placed 15-second slot. Repeated identical requests must be exactly
+equal within one platform run; cross-platform CI compares the independent
+message bits plus duration, placement, silence, amplitude, clipping, and
+RIFF/WAVE byte-order invariants rather than treating platform math-library PCM
+bytes as a new golden reference. No test plays or opens the generated audio.
+
 The fixture README defines the intentional refresh process. Ordinary CI parses
 the manifest, validates its schema and units, checks every SHA-256 and WAV
 header, and rejects missing provenance, duplicate identities, malformed data,

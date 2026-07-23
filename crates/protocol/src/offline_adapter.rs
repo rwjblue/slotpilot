@@ -2,6 +2,7 @@
 
 use std::str::FromStr;
 
+use mfsk_core::ft8::wave_gen::{message_to_tones, tones_to_i16};
 use mfsk_core::msg::{
     CallsignHashTable,
     hash_table::ihashcall,
@@ -10,9 +11,11 @@ use mfsk_core::msg::{
 use slotpilot_domain::FullCallsign;
 
 use crate::{
-    AmbiguousFt8Message, ClassifiedFt8Message, FreeTextFt8Message, Ft8CodecError,
-    Ft8DecodeBitsRequest, Ft8EncodeRequest, Ft8MessageClass, Ft8MessageCodec, PackedFt8Bits,
-    ResolvedFt8Message, UnresolvedHashFt8Message, UnsupportedFt8Message,
+    AmbiguousFt8Message, ClassifiedFt8Message, FT8_FRAME_SAMPLES, FT8_PCM_SAMPLE_RATE_HZ,
+    FT8_SLOT_SAMPLES, FreeTextFt8Message, Ft8CodecError, Ft8DecodeBitsRequest, Ft8EncodeRequest,
+    Ft8MessageClass, Ft8MessageCodec, Ft8WaveformError, Ft8WaveformPlacement, Ft8WaveformRequest,
+    Ft8WaveformSynthesizer, PackedFt8Bits, PcmBuffer, ResolvedFt8Message, UnresolvedHashFt8Message,
+    UnsupportedFt8Message,
 };
 
 /// Reviewed offline FT8 message codec behind SlotPilot-owned values.
@@ -23,6 +26,82 @@ use crate::{
 #[derive(Debug, Clone, Default)]
 pub struct OfflineFt8Codec {
     hashes: CallsignHashTable,
+}
+
+/// Deterministic, in-memory-only FT8 waveform synthesizer.
+#[derive(Debug, Clone, Default)]
+pub struct OfflineFt8Synthesizer {
+    codec: OfflineFt8Codec,
+}
+
+impl OfflineFt8Synthesizer {
+    /// Constructs an offline synthesizer with no device or station behavior.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Ft8WaveformSynthesizer for OfflineFt8Synthesizer {
+    fn synthesize(&self, request: &Ft8WaveformRequest) -> Result<PcmBuffer, Ft8WaveformError> {
+        if request.format.sample_rate_hz() != FT8_PCM_SAMPLE_RATE_HZ
+            || request.format.channels() != 1
+        {
+            return Err(invalid_waveform(
+                "FT8 synthesis requires mono signed 16-bit PCM at 12,000 Hz",
+            ));
+        }
+
+        let base_frequency = request.audio_frequency.hz();
+        if base_frequency > 5_956 {
+            return Err(invalid_waveform(
+                "FT8 tone 7 must remain below the 6,000 Hz Nyquist frequency",
+            ));
+        }
+
+        let bits = self.codec.encode(&Ft8EncodeRequest {
+            message: request.message.clone(),
+        })?;
+        let message_bits = bits.bits().map(u8::from);
+        let tones = message_to_tones(&message_bits);
+        let amplitude = i16::try_from(
+            32_767_u32
+                .checked_mul(u32::from(request.amplitude.value()))
+                .ok_or_else(|| invalid_waveform("PCM amplitude calculation overflowed"))?
+                / 1_000,
+        )
+        .map_err(|_| invalid_waveform("PCM amplitude exceeded signed 16-bit range"))?;
+        let frame = tones_to_i16(&tones, base_frequency as f32, amplitude);
+        if frame.len() != FT8_FRAME_SAMPLES as usize
+            || frame
+                .iter()
+                .any(|sample| sample.unsigned_abs() > amplitude as u16)
+        {
+            return Err(invalid_waveform(
+                "private FT8 synthesis violated the owned PCM bounds",
+            ));
+        }
+
+        let samples = match request.placement {
+            Ft8WaveformPlacement::FrameOnly => frame,
+            Ft8WaveformPlacement::FullSlot { start_frame } => {
+                let end_frame = start_frame
+                    .checked_add(FT8_FRAME_SAMPLES)
+                    .ok_or_else(|| invalid_waveform("full-slot frame placement overflowed"))?;
+                if end_frame > FT8_SLOT_SAMPLES {
+                    return Err(invalid_waveform(
+                        "full-slot placement cannot contain the complete FT8 frame",
+                    ));
+                }
+                let mut slot = vec![0; FT8_SLOT_SAMPLES as usize];
+                let start = start_frame as usize;
+                let end = end_frame as usize;
+                slot[start..end].copy_from_slice(&frame);
+                slot
+            }
+        };
+        PcmBuffer::new(request.format, samples).map_err(Ft8WaveformError::from)
+    }
 }
 
 impl OfflineFt8Codec {
@@ -339,6 +418,12 @@ fn invalid_message(detail: &str) -> Ft8CodecError {
 
 fn adapter_error(detail: &str) -> Ft8CodecError {
     Ft8CodecError::Adapter {
+        detail: detail.to_owned(),
+    }
+}
+
+fn invalid_waveform(detail: &str) -> Ft8WaveformError {
+    Ft8WaveformError::InvalidConfiguration {
         detail: detail.to_owned(),
     }
 }
