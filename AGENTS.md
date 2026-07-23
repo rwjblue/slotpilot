@@ -137,6 +137,9 @@ Expected binaries:
 ## Development rules
 
 - Use Rust 2024 edition unless an accepted decision changes it.
+- Define shared third-party dependencies in the root `Cargo.toml` under
+  `[workspace.dependencies]`.
+- Reference shared dependencies from member crates with `workspace = true`.
 - Prefer explicit domain types over strings and primitive integers for callsigns, frequencies, bands, slot identities, request IDs, and profile revisions.
 - Avoid `unwrap`, `expect`, and panics in production paths. Tests may use them when the failure message is clear.
 - Make time an injected dependency. Slot-bound behavior must be testable with a virtual clock.
