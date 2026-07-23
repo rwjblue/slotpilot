@@ -101,7 +101,7 @@ if [[ "${actual_protocol_features}" != "${expected_protocol_features}" ]]; then
   exit 1
 fi
 
-if ! rg --fixed-strings --quiet \
+if ! grep -Fq \
   'mfsk-core = { version = "=0.7.4", default-features = false, features = ["ft8", "fft-rustfft"] }' \
   Cargo.toml; then
   echo "mfsk-core must remain exactly pinned with the reviewed feature set" >&2
@@ -110,7 +110,10 @@ fi
 
 expected_dependency_import="crates/protocol/src/offline_adapter.rs"
 actual_dependency_imports="$(
-  rg --files-with-matches 'mfsk_core::' crates apps --glob '*.rs' |
+  find crates apps \
+    -type f \
+    -name '*.rs' \
+    -exec grep -l 'mfsk_core::' {} + |
     LC_ALL=C sort
 )"
 if [[ "${actual_dependency_imports}" != "${expected_dependency_import}" ]]; then
@@ -127,17 +130,19 @@ if find target/doc/slotpilot_protocol \
   -type f \
   -name '*.html' \
   ! -path '*/src/*' \
-  -print0 |
-  xargs -0 rg --ignore-case --quiet 'mfsk[_-]core'; then
+  -exec grep -Eiq 'mfsk[_-]core' {} +; then
   echo "dependency-specific terminology leaked into public protocol rustdoc" >&2
   exit 1
 fi
 
-if rg --line-number \
-  'std::process|std::net|Command::new|cpal|hamlib|rigctld|serialport' \
+if find \
   crates/protocol/src \
   crates/protocol/tests \
-  --glob '*.rs'; then
+  -type f \
+  -name '*.rs' \
+  -exec grep -En \
+    'std::process|std::net|Command::new|cpal|hamlib|rigctld|serialport' \
+    {} +; then
   echo "offline protocol code gained an external process, network, device, or rig path" >&2
   exit 1
 fi
