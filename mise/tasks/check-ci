@@ -21,6 +21,32 @@ if ! grep -Fq "run: mise run ci" "${workflow}"; then
   exit 1
 fi
 
+mise_line="$(grep -nF "uses: jdx/mise-action@" "${workflow}" | cut -d: -f1)"
+cargo_cache_line="$(grep -nF "uses: Swatinem/rust-cache@" "${workflow}" | cut -d: -f1)"
+gate_line="$(grep -nF "run: mise run ci" "${workflow}" | cut -d: -f1)"
+
+if [[ -z "${mise_line}" || -z "${cargo_cache_line}" || -z "${gate_line}" ]]; then
+  echo "CI workflow must install tools, restore the Cargo cache, and run the gate" >&2
+  exit 1
+fi
+
+if ((mise_line >= cargo_cache_line || cargo_cache_line >= gate_line)); then
+  echo "Cargo cache must be restored after tool installation and before the gate" >&2
+  exit 1
+fi
+
+for setting in \
+  "continue-on-error: true" \
+  "cache-bin: false" \
+  "cache-on-failure: false" \
+  "save-if:" \
+  "refs/heads/main"; do
+  if ! grep -Fq "${setting}" "${workflow}"; then
+    echo "CI workflow Cargo cache is missing required setting: ${setting}" >&2
+    exit 1
+  fi
+done
+
 while IFS= read -r line; do
   if [[ ! "${line}" =~ @[0-9a-f]{40}([[:space:]]|$) ]]; then
     echo "GitHub Action is not pinned to a full commit SHA: ${line}" >&2
