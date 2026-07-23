@@ -1,0 +1,51 @@
+name: Implementation task
+description: A scoped roadmap or engineering task
+title: ""
+labels: ["kind: implementation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read `AGENTS.md`, the relevant design documents, and accepted ADRs before implementation.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: State the single outcome this issue should deliver.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      description: Enumerate the intended boundaries and deliverables.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Explicitly out of scope
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use concrete, testable criteria.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and hardware implications
+      description: Explain PTT, TX, audio-output, rig-mutation, clock, and physical-hardware implications, including when there are none.
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Documentation and decision records
+      description: List documents or ADRs that must change.
