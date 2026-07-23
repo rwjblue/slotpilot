@@ -1,8 +1,8 @@
-//! Compile-only composition shell for the SlotPilot command-line client.
+//! Composition shell for the SlotPilot command-line client.
 //!
-//! The CLI is a future client of the shared versioned service API. Phase 0.1
-//! intentionally defines no commands, transport, station behavior, or
-//! user-visible output.
+//! The shared result renderer exists, while command parsing and local transport
+//! remain deferred to their focused Phase 0 issue. Running this binary performs
+//! no I/O and no station behavior.
 
 fn main() -> anyhow::Result<()> {
     Ok(())

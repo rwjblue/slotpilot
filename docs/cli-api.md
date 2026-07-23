@@ -88,19 +88,27 @@ Names may be refined during implementation, but command concepts and parity with
 
 ## Command envelope
 
-A mutating request includes:
+Every Phase 0 request uses a bounded versioned envelope:
 
 ```json
 {
   "api_version": 1,
-  "request_id": "0190e4c0-...",
+  "request_id": "req_01jabcde9",
   "command": {
-    "type": "wspr_tx_enqueue",
-    "payload": {}
-  },
-  "external_context": null
+    "kind": "get_snapshot"
+  }
 }
 ```
+
+The no-op service supports `get_capabilities` and `get_snapshot`.
+`get_capabilities` carries at most 16 client-supported versions and selects
+version 1. An unsupported envelope version or lack of a common version returns
+`incompatible_api_version`; an oversized list returns
+`negotiation_too_large`.
+
+JSON objects may gain additive fields, which version-1 readers ignore. Unknown
+command, result, or error-detail variants are incompatible rather than guessed
+from strings.
 
 Request-ID behavior:
 
@@ -144,6 +152,16 @@ These categories require fixtures before being treated as stable.
 ## Snapshot and events
 
 A client first requests a bounded snapshot containing current service, rig, audio, clock, session, operating-mode, and queue state. It then subscribes to ordered events beginning from a cursor when supported.
+
+The Phase 0 no-op snapshot is narrower: it reports a `service_instance_id`,
+`not_configured`, `not_running`, and unavailable transmit authority. Each
+daemon process generation has a new `svc_` identity. That identity is for
+reconnect/restart detection only; it is not persisted authority and a changed
+identity never implies restoration of station state.
+
+Reviewed version-1 command, result, error, capability, and snapshot JSON
+fixtures are maintained under `crates/api/tests/fixtures/`. Human table output
+and JSON output are renderings of the same typed response model.
 
 Events include stable IDs, UTC time, monotonic/sequence ordering information, and a schema version. Clients must tolerate unknown additive event fields and should surface unsupported event kinds rather than silently reinterpreting them.
 

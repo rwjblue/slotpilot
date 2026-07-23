@@ -96,6 +96,11 @@ define_id!(
 );
 define_id!(SessionId, "ses_", "Identity of an operating session.");
 define_id!(
+    ServiceInstanceId,
+    "svc_",
+    "Identity of one running daemon process generation."
+);
+define_id!(
     ProfileRevisionId,
     "prv_",
     "Identity of one immutable profile revision."

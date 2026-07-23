@@ -1,0 +1,8 @@
+{
+  "api_version": 1,
+  "request_id": "req_01jabcde9",
+  "command": {
+    "kind": "get_capabilities",
+    "supported_versions": [1]
+  }
+}

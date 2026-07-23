@@ -86,6 +86,7 @@ name = "slotpilot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "serde_json",
  "slotpilot-api",
 ]
 
@@ -93,6 +94,8 @@ dependencies = [
 name = "slotpilot-api"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "slotpilot-domain",
  "thiserror",
 ]

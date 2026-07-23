@@ -1,0 +1,14 @@
+{
+  "api_version": 1,
+  "request_id": "req_01jabcde9",
+  "outcome": "success",
+  "payload": {
+    "kind": "snapshot",
+    "value": {
+      "service_instance_id": "svc_01jabcde9",
+      "configuration": "not_configured",
+      "operation": "not_running",
+      "transmit_authority": "unavailable"
+    }
+  }
+}

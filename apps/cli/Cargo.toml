@@ -9,6 +9,7 @@ version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+serde_json.workspace = true
 slotpilot-api.workspace = true
 
 [lints]
