@@ -186,30 +186,43 @@ unsupported configuration, or empty input set remains a distinct typed
 result. The maintained dependency review is
 [`dependencies/cpal-0.18.1.md`](dependencies/cpal-0.18.1.md).
 
-Later real-time callbacks move samples to and from bounded preallocated queues.
-Resampling, FFTs, decode work, logging, and rig interaction occur elsewhere.
+The private input adapter opens only an exact selected stable identity and
+configuration. It preallocates a bounded lock-free pool and queue before the
+stream starts. The callback selects one source channel, converts supported PCM
+representations into mono signed-16-bit samples, records capture position and
+timing, updates atomic health counters, and moves preallocated storage without
+allocation or waiting. Overflow drops new frames, advances the source
+position, and marks the next delivered batch with the exact known gap.
+Device/backend failure stops further callback processing and never selects a
+replacement.
+
+Resampling, FFTs, decode work, persistence, client state, logging, and rig
+interaction occur elsewhere.
 
 A timestamped audio timeline maps device samples into protocol windows. Transmit waveforms are fully prepared before their slot deadline and placed at a deterministic sample position.
 
 Platform adapters provide stable device identities and permission/setup
-behavior. Discovery may enumerate input devices but opens no stream and cannot
-select by display name.
+behavior. Discovery may enumerate input devices but cannot select by display
+name. Capture lookup uses the same exact identity and never consults a default
+device or same-named replacement.
 
 The owned Phase 2 contract remains independent of device-library types. Stable
 input identity is an opaque platform value structurally separate from display
 metadata; display names can never select or recover a device. Checked input
 configurations record sample rate, channel count and selection, and source
-sample format. Bounded normalized batches carry process/stream generations,
+sample format. Bounded normalized mono batches carry process/stream generations,
 monotonic source-frame positions, paired UTC/monotonic evidence, callback
 diagnostics, and explicit discontinuities. A checked canonical FT8 receive
 window is exactly 180,000 mono signed-16-bit samples at 12,000 Hz aligned to a
 15-second UTC boundary, matching the offline decoder without importing
 protocol implementation types.
 
-Constructing owned batches is worker-side work. A later live callback may only
-convert/copy into and move preallocated bounded storage, update counters, and
-signal faults without allocation, blocking, filesystem or network I/O,
-SQLite, protocol decode, rig access, logging sinks, or client/GUI locks.
+Constructing owned batches and copying samples out of the reusable pool is
+worker-side work. The live callback only converts/copies into and moves
+preallocated bounded storage, updates counters, and signals faults without
+allocation, blocking, filesystem or network I/O, SQLite, protocol decode, rig
+access, logging sinks, or client/GUI locks. The queue implementation review is
+[`dependencies/crossbeam-queue-0.3.13.md`](dependencies/crossbeam-queue-0.3.13.md).
 
 ## Time boundary
 

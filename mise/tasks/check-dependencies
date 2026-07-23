@@ -136,7 +136,11 @@ if ! grep -Fq \
   exit 1
 fi
 
-expected_cpal_import="crates/audio/src/discovery.rs"
+expected_cpal_imports="$(
+  printf '%s\n' \
+    "crates/audio/src/capture.rs" \
+    "crates/audio/src/discovery.rs"
+)"
 actual_cpal_imports="$(
   find crates apps \
     -type f \
@@ -144,10 +148,10 @@ actual_cpal_imports="$(
     -exec grep -l 'cpal::' {} + |
     LC_ALL=C sort
 )"
-if [[ "${actual_cpal_imports}" != "${expected_cpal_import}" ]]; then
-  echo "CPAL imports escaped the private receive discovery adapter" >&2
+if [[ "${actual_cpal_imports}" != "${expected_cpal_imports}" ]]; then
+  echo "CPAL imports escaped the private receive adapters" >&2
   echo "expected:" >&2
-  echo "${expected_cpal_import}" >&2
+  echo "${expected_cpal_imports}" >&2
   echo "actual:" >&2
   echo "${actual_cpal_imports:-<none>}" >&2
   exit 1
@@ -159,6 +163,87 @@ if grep -En \
   echo "receive discovery gained default-device selection or stream creation" >&2
   exit 1
 fi
+
+if grep -En \
+  'default_input_device|default_output_device|default_input_config|build_output_stream' \
+  crates/audio/src/capture.rs; then
+  echo "receive capture gained default-device/configuration selection or output creation" >&2
+  exit 1
+fi
+
+actual_queue_features="$(
+  cargo tree \
+    --package slotpilot-audio \
+    --edges features \
+    --prefix none |
+    awk '$1 == "crossbeam-queue" && $2 == "feature" {
+      gsub(/"/, "", $3)
+      print $3
+    }' |
+    LC_ALL=C sort -u
+)"
+expected_queue_features="$(
+  printf '%s\n' \
+    "alloc" \
+    "std"
+)"
+if [[ "${actual_queue_features}" != "${expected_queue_features}" ]]; then
+  echo "unexpected crossbeam-queue feature surface" >&2
+  echo "expected:" >&2
+  echo "${expected_queue_features}" >&2
+  echo "actual:" >&2
+  echo "${actual_queue_features:-<none>}" >&2
+  exit 1
+fi
+
+if ! grep -Fq \
+  'crossbeam-queue = { version = "=0.3.13", default-features = false, features = ["std"] }' \
+  Cargo.toml; then
+  echo "crossbeam-queue must remain exactly pinned with the reviewed feature set" >&2
+  exit 1
+fi
+
+expected_queue_import="crates/audio/src/capture.rs"
+actual_queue_imports="$(
+  find crates apps \
+    -type f \
+    -name '*.rs' \
+    -exec grep -l 'crossbeam_queue::' {} + |
+    LC_ALL=C sort
+)"
+if [[ "${actual_queue_imports}" != "${expected_queue_import}" ]]; then
+  echo "crossbeam-queue imports escaped the private receive capture adapter" >&2
+  echo "expected:" >&2
+  echo "${expected_queue_import}" >&2
+  echo "actual:" >&2
+  echo "${actual_queue_imports:-<none>}" >&2
+  exit 1
+fi
+
+callback_body="$(
+  sed -n \
+    '/BEGIN REALTIME CALLBACK/,/END REALTIME CALLBACK/p' \
+    crates/audio/src/capture.rs
+)"
+for forbidden in \
+  'Vec::' \
+  '.to_vec(' \
+  'Mutex' \
+  'RwLock' \
+  'sleep(' \
+  'File::' \
+  'Tcp' \
+  'sqlite' \
+  'protocol' \
+  'decode' \
+  'rig' \
+  'client' \
+  'build_output_stream'; do
+  if grep -Fq "${forbidden}" <<<"${callback_body}"; then
+    echo "real-time callback contains forbidden operation marker: ${forbidden}" >&2
+    exit 1
+  fi
+done
 
 expected_dependency_import="crates/protocol/src/offline_adapter.rs"
 actual_dependency_imports="$(

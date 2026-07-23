@@ -139,10 +139,19 @@ protocol-decode, persistence, rig, PTT, or RF path.
 The Phase 2 discovery adapter pins CPAL 0.18.1 with no optional features. Unit
 tests map every supported PCM sample format and typed backend error, validate
 bounded rate/channel ranges, and prove duplicate display names retain distinct
-stable identities without opening a stream. The repository's macOS, Windows,
-and Linux matrix compile-tests the private native adapter. Ordinary tests do
-not enumerate or require a physical device; physical permission, identity,
-and device-loss evidence remains the separate human-required Phase 2 gate.
+stable identities without opening a stream.
+
+The capture adapter uses an exact-pinned bounded lock-free queue and
+preallocates every callback buffer. Platform-free callback tests drive all PCM
+endpoint conversions, selected-channel extraction, clipping and delay
+diagnostics, sustained overflow, explicit discontinuity recovery, backend stop,
+shutdown, and generation-isolated reopen. A mechanical source guard rejects
+allocation, blocking synchronization, I/O, persistence, protocol, rig, client,
+and output calls inside the marked callback section. The repository's macOS,
+Windows, and Linux matrix compile-tests the private native adapter. Ordinary
+tests do not enumerate or require a physical device; physical permission,
+identity, capture, and device-loss evidence remains the separate
+human-required Phase 2 gate.
 
 Protocol samples remain deterministic placeholders, not FT8/WSPR algorithms or
 device output. The emergency-unkey fake records a logical request and can

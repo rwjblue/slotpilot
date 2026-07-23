@@ -75,16 +75,17 @@ When explicitly handed a GitHub issue:
 ## Current repository state
 
 Phases 0 and 1 are complete. Phase 2 has begun with owned receive-only audio
-contracts, deterministic fakes, and stable input-device discovery; no stream or
-capture path exists.
+contracts, deterministic fakes, stable input-device discovery, and an isolated
+exact-device input stream feeding a bounded real-time-safe queue. Capture is
+not yet composed into the daemon or a live decode path.
 The repository has a development-only no-op
 daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
 and hardware test seams, initial SQLite durability, and the complete repository
 gate. `slotpilot-protocol` also has a bounded offline FT8-only harness:
 SlotPilot-owned message outcomes, an exact private dependency adapter, reviewed
 fixtures, deterministic in-memory PCM synthesis, bounded RIFF/WAVE parsing,
-and reproducible static-recording decode. There is deliberately no live audio,
-station FT8 command/event path, WSPR protocol, audio-device, rig-control,
+and reproducible static-recording decode. There is deliberately no live
+station FT8 command/event path, WSPR protocol, audio output, rig-control,
 logging, transmit, or desktop behavior. Do not create broad speculative
 implementations in an orientation task.
 

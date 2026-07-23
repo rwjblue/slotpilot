@@ -18,10 +18,12 @@ All clients use the same versioned command/event API. No capability should exist
 > contracts, discovery, and fakes. Static/in-memory FT8 messages, waveforms,
 > reviewed WAV fixtures, and bounded synthetic capture batches can be
 > processed in tests. Receive-only device discovery can enumerate stable input
-> identities, but no stream or microphone capture, radio, PTT, live decode,
-> logging, transmit, WSPR, or desktop behavior is available; live
-> station capability remains unavailable. Do not treat the repository or its
-> unsigned local artifacts as safe for on-air use.
+> identities, and the library adapter can open only an explicitly selected
+> input into a bounded real-time-safe queue. It is not yet composed into the
+> daemon and performs no live decode. No audio output, radio, PTT, logging,
+> transmit, WSPR, or desktop behavior is available; live station capability
+> remains unavailable. Do not treat the repository or its unsigned local
+> artifacts as safe for on-air use.
 
 ## Product direction
 
@@ -67,9 +69,9 @@ A contributor or coding agent should read these files in order:
 8. [`docs/backlog/phase-0.md`](docs/backlog/phase-0.md)
 
 The repository is intentionally free of live station behavior beyond the local
-no-op API, persistence/test seams, and offline FT8 library harness. An assigned
-issue should create only the narrow slice it owns and preserve the documented
-boundaries.
+no-op API, persistence/test seams, offline FT8 library harness, and isolated
+receive-input adapter. An assigned issue should create only the narrow slice it
+owns and preserve the documented boundaries.
 
 Phase 0 is complete; its durable implementation record is
 [tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). Phase 1's

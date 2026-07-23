@@ -10,7 +10,7 @@
 - Default features: disabled
 
 This is the maintained Phase 2 adoption record for receive-only device
-discovery and later input capture. It authorizes only private adapters in
+discovery and input capture. It authorizes only private adapters in
 `slotpilot-audio`. It does not authorize an output stream, default-device
 selection, automatic fallback, persistence, a wire contract, rig control,
 PTT, transmit scheduling, or RF.
@@ -57,7 +57,7 @@ macOS, Windows, and Ubuntu before any issue using this pin lands. Optional
 backends require a separately reviewed issue and cannot silently change a
 persisted identity's host.
 
-## Reviewed discovery behavior
+## Reviewed discovery and capture behavior
 
 The private adapter uses only safe enumeration and metadata methods:
 
@@ -68,10 +68,17 @@ The private adapter uses only safe enumeration and metadata methods:
 - map PCM rate/channel/sample-format ranges into checked SlotPilot values;
 - look up only an exact selected identity with `device_by_id`.
 
-It never calls `default_input_device`, `default_output_device`, or a stream
-builder. Duplicate display names remain distinct because sorting, equality,
-lookup, and selection use only stable identities. DSD-only or out-of-bounds
-configurations fail as unsupported rather than being coerced into PCM.
+Discovery never calls `default_input_device`, `default_output_device`, or a
+stream builder. Duplicate display names remain distinct because sorting,
+equality, lookup, and selection use only stable identities. DSD-only or
+out-of-bounds configurations fail as unsupported rather than being coerced
+into PCM.
+
+The private capture adapter resolves the same exact identity, verifies the
+exact configuration against the device's input ranges, and calls only the
+typed input-stream builder. It uses the dependency's input callback timestamps
+to retain capture/callback delay evidence. It never opens an output stream,
+consults a default device/configuration, or performs fallback.
 
 CPAL documents that a stable ID is provided across supported backends "where
 possible." If a backend cannot return one, SlotPilot reports the owned
@@ -87,17 +94,17 @@ by the repository gate.
 
 CPAL and platform binding crates contain internal unsafe code needed to call
 native audio APIs. SlotPilot's workspace keeps `unsafe_code = "forbid"` and
-uses only CPAL's safe enumeration surface. All dependency types remain in the
-private discovery adapter; public signatures expose only SlotPilot-owned
-identity, metadata, configuration, and error values.
+uses only CPAL's safe discovery and input-stream surfaces. All dependency types
+remain in private adapters; public signatures expose only SlotPilot-owned
+identity, metadata, configuration, batch, health, and error values.
 
 ## Boundary and upgrade procedure
 
-All CPAL imports for this issue live in
-`crates/audio/src/discovery.rs`. Discovery may enumerate platform devices and
-therefore can encounter permission behavior, but it does not open or capture
-from them. No other crate imports CPAL, and dependency/public-rustdoc guards
-enforce the boundary.
+All CPAL imports live in `crates/audio/src/discovery.rs` and
+`crates/audio/src/capture.rs`. Discovery may enumerate platform devices and
+therefore can encounter permission behavior. Capture may open only the exact
+input identity/configuration selected through discovery. No other crate
+imports CPAL, and dependency/public-rustdoc guards enforce the boundary.
 
 For an upgrade:
 
@@ -107,6 +114,7 @@ For an upgrade:
    dependencies, advisories, and unsafe exposure;
 4. update the exact root pin, tag commit, and archive checksum without enabling
    optional features;
-5. run owned mapping, duplicate-name, error, and exact-lookup tests;
+5. run owned mapping, duplicate-name, error, exact-lookup, conversion, queue,
+   overflow, lifecycle, and callback-boundary tests;
 6. run `mise run ci` on the complete cross-platform matrix and update this
    record.

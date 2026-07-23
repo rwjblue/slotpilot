@@ -12,6 +12,20 @@ use crate::{
     InputDeviceIdentity, InputDiscoveryError, InputPlatform, InputSampleFormat,
 };
 
+pub(super) fn device_for_identity(
+    identity: &InputDeviceIdentity,
+) -> Result<cpal::Device, InputDiscoveryError> {
+    let host = cpal::default_host();
+    let platform = platform_for_host(host.id())?;
+    if identity.platform() != platform {
+        return Err(InputDiscoveryError::DeviceDisappeared);
+    }
+    let device_id = DeviceId::from_str(identity.opaque_id())
+        .map_err(|_| InputDiscoveryError::IdentityUnavailable)?;
+    host.device_by_id(&device_id)
+        .ok_or(InputDiscoveryError::DeviceDisappeared)
+}
+
 /// Cross-platform receive-only discovery through the system's default host.
 ///
 /// Discovery never opens a stream and never consults a default device. Every
@@ -49,16 +63,8 @@ impl InputDeviceDiscovery for SystemInputDiscovery {
         &self,
         identity: &InputDeviceIdentity,
     ) -> Result<InputDeviceDescriptor, InputDiscoveryError> {
-        let host = cpal::default_host();
-        let platform = platform_for_host(host.id())?;
-        if identity.platform() != platform {
-            return Err(InputDiscoveryError::DeviceDisappeared);
-        }
-        let device_id = DeviceId::from_str(identity.opaque_id())
-            .map_err(|_| InputDiscoveryError::IdentityUnavailable)?;
-        let device = host
-            .device_by_id(&device_id)
-            .ok_or(InputDiscoveryError::DeviceDisappeared)?;
+        let device = device_for_identity(identity)?;
+        let platform = identity.platform();
         descriptor_for_device(&device, platform)?
             .ok_or(InputDiscoveryError::UnsupportedConfiguration)
     }

@@ -6,8 +6,13 @@
 
 use thiserror::Error;
 
+mod capture;
 mod discovery;
 
+pub use capture::{
+    CALLBACK_DELAY_FAULT_MILLIS, DEFAULT_CAPTURE_QUEUE_BATCHES, InputCaptureError,
+    MAX_CAPTURE_QUEUE_BATCHES, SystemInputCapture,
+};
 pub use discovery::SystemInputDiscovery;
 
 /// Canonical FT8 receive sample rate shared with the offline protocol contract.
@@ -509,7 +514,7 @@ impl CaptureDiagnostics {
     }
 }
 
-/// One bounded, normalized signed-16-bit callback-to-worker handoff.
+/// One bounded, normalized mono signed-16-bit callback-to-worker handoff.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaptureBatch {
     /// Daemon-process generation.
@@ -541,12 +546,10 @@ impl CaptureBatch {
         diagnostics: CaptureDiagnostics,
         samples: Vec<i16>,
     ) -> Result<Self, ReceiveAudioError> {
-        let channels = usize::from(configuration.channels);
-        if samples.is_empty() || !samples.len().is_multiple_of(channels) {
+        if samples.is_empty() {
             return Err(ReceiveAudioError::InvalidBatchShape);
         }
-        let frames = samples.len() / channels;
-        if frames > MAX_CAPTURE_BATCH_FRAMES as usize {
+        if samples.len() > MAX_CAPTURE_BATCH_FRAMES as usize {
             return Err(ReceiveAudioError::BatchTooLarge);
         }
         if first_frame.position != discontinuity.map_or(first_frame.position, |value| value.at) {
@@ -567,7 +570,7 @@ impl CaptureBatch {
         })
     }
 
-    /// Returns interleaved normalized signed-16-bit samples.
+    /// Returns normalized samples from the exact selected source channel.
     #[must_use]
     pub fn samples(&self) -> &[i16] {
         &self.samples
@@ -576,8 +579,7 @@ impl CaptureBatch {
     /// Returns source frames in this batch.
     #[must_use]
     pub fn frame_count(&self) -> u32 {
-        u32::try_from(self.samples.len() / usize::from(self.configuration.channels))
-            .unwrap_or(MAX_CAPTURE_BATCH_FRAMES)
+        u32::try_from(self.samples.len()).unwrap_or(MAX_CAPTURE_BATCH_FRAMES)
     }
 
     /// Returns the position immediately after this batch.
@@ -685,7 +687,7 @@ impl InputHealth {
 }
 
 /// Typed receive-only input fault kind.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InputFaultKind {
     /// Access to input devices was denied.
     PermissionDenied,
