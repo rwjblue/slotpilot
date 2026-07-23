@@ -14,6 +14,11 @@ SlotPilot needs FT8 and WSPR encode/decode capability. A clean-room implementati
 - Place it behind SlotPilot-owned protocol traits, messages, decodes, errors, and waveform types.
 - Validate behavior with reviewed fixtures and reference comparisons.
 
+The initial implementation review selected exact crate version 0.7.4 with
+defaults disabled and only `ft8` plus the host `fft-rustfft` backend enabled.
+The maintained review and upgrade procedure is
+[`../dependencies/mfsk-core-0.7.4.md`](../dependencies/mfsk-core-0.7.4.md).
+
 ## Consequences
 
 - Distributed SlotPilot binaries and derivative combined works must comply with GPL terms.

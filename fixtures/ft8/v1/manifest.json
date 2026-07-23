@@ -97,15 +97,15 @@
     {
       "id": "ordinary-rr73",
       "reference_authority": "wsjt_x_authoritative",
-      "input_text": "K1ABC W1AW RR73",
-      "canonical_text": "K1ABC W1AW RR73",
-      "outcome": "resolved",
-      "message_class": "ending_rr73",
+    "input_text": "K1ABC W1AW RR73",
+    "canonical_text": "K1ABC W1AW RR73",
+    "outcome": "resolved",
+    "message_class": "directed_grid",
       "sender": "K1ABC",
       "recipient": "W1AW",
       "exactly_representable": true,
       "payload_bits": "00001001101111011110001101010000010111111111010101101000100111111001110101001",
-      "notes": "Directed RR73 ending."
+    "notes": "WSJT-X 3.0.0 encodes this token as the valid Maidenhead locator RR73, not as the reserved RR73 response code. SlotPilot classifies from the packed field so this grid cannot masquerade as a QSO ending."
     },
     {
       "id": "special-compound-cq",

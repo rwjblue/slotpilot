@@ -4,10 +4,14 @@
 //! DSP implementation, file parser, audio-device access, QSO policy, station
 //! command, persistence, scheduling, PTT, or transmit authority.
 
+mod offline_adapter;
+
 use std::cmp::Ordering;
 
 use slotpilot_domain::{AudioFrequency, FullCallsign};
 use thiserror::Error;
+
+pub use offline_adapter::OfflineFt8Codec;
 
 /// Number of information bits in one packed FT8 message.
 pub const FT8_MESSAGE_BITS: usize = 77;

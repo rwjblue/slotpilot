@@ -61,6 +61,14 @@ recordings are offline-generated data: one clean signal and one noisy,
 overlapping window. Passing them makes no broader compatibility or sensitivity
 claim.
 
+The message adapter uses the exact reviewed dependency pin recorded in
+`dependencies/mfsk-core-0.7.4.md`. Golden tests compare owned message fields and
+77 protocol bits, exercise resolved and unresolved compound-call hashes, reject
+lossy compound-call encoding, and preserve free text and unsupported structures
+as non-resolved outcomes. The `RR73` grid/response collision is classified from
+the packed field rather than text, preventing a valid `RR73` locator from
+masquerading as an ending.
+
 The fixture README defines the intentional refresh process. Ordinary CI parses
 the manifest, validates its schema and units, checks every SHA-256 and WAV
 header, and rejects missing provenance, duplicate identities, malformed data,

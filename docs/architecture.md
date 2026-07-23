@@ -139,9 +139,12 @@ messages are structurally distinct from unresolved hashes, unsupported
 structured content, ambiguous data, and free text; consumers must use an
 explicit checked conversion to obtain a resolved message.
 
-`mfsk-core` is the planned initial GPL-compatible FT8/WSPR implementation. It
-remains behind SlotPilot-owned traits because it is a young `0.x` dependency
-and must not define public APIs or persisted representations.
+The exact reviewed `mfsk-core` 0.7.4 pin is the initial GPL-compatible offline
+FT8 implementation. Defaults are disabled and WSPR is not enabled; its later
+protocol work remains separately scoped. The dependency remains behind
+SlotPilot-owned traits because it is a young `0.x` dependency and must not
+define public APIs or persisted representations. The review is maintained in
+`dependencies/mfsk-core-0.7.4.md`.
 
 The protocol layer returns typed decodes, messages, packed bits, and bounded
 offline PCM with explicit sample rate, channels, sample format, duration,

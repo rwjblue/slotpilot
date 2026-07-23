@@ -1,0 +1,355 @@
+//! Private conversion layer for the reviewed offline FT8 message dependency.
+
+use std::str::FromStr;
+
+use mfsk_core::msg::{
+    CallsignHashTable,
+    hash_table::ihashcall,
+    wsjt77::{pack77, pack77_type4, unpack77_with_hash},
+};
+use slotpilot_domain::FullCallsign;
+
+use crate::{
+    AmbiguousFt8Message, ClassifiedFt8Message, FreeTextFt8Message, Ft8CodecError,
+    Ft8DecodeBitsRequest, Ft8EncodeRequest, Ft8MessageClass, Ft8MessageCodec, PackedFt8Bits,
+    ResolvedFt8Message, UnresolvedHashFt8Message, UnsupportedFt8Message,
+};
+
+/// Reviewed offline FT8 message codec behind SlotPilot-owned values.
+///
+/// Known calls populate only the private hash-resolution context. Constructing
+/// this value opens no device, performs no I/O, and grants no operating or
+/// transmit authority.
+#[derive(Debug, Clone, Default)]
+pub struct OfflineFt8Codec {
+    hashes: CallsignHashTable,
+}
+
+impl OfflineFt8Codec {
+    /// Constructs a codec with an empty callsign-hash context.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Constructs a codec whose decoder may resolve hashes for known calls.
+    #[must_use]
+    pub fn with_known_calls<'a>(known_calls: impl IntoIterator<Item = &'a FullCallsign>) -> Self {
+        let mut hashes = CallsignHashTable::new();
+        for call in known_calls {
+            hashes.insert(call.original());
+        }
+        Self { hashes }
+    }
+
+    fn encode_owned(&self, message: &ResolvedFt8Message) -> Result<[u8; 77], Ft8CodecError> {
+        let words: Vec<&str> = message.canonical_text().split_whitespace().collect();
+        let encoded = match (message.class(), words.as_slice()) {
+            (Ft8MessageClass::GeneralCall, ["CQ", sender])
+                if same_identity(sender, message.sender()) && sender.contains('/') =>
+            {
+                pack77_type4(sender, "", "", true).map(|mut bits| {
+                    write_bits(&mut bits, 0, 12, ihashcall(sender, 12));
+                    bits
+                })
+            }
+            (Ft8MessageClass::GeneralCall, ["CQ", sender, grid])
+                if same_identity(sender, message.sender()) && is_grid(grid) =>
+            {
+                pack77("CQ", sender, grid)
+            }
+            (class, [sender, recipient, payload])
+                if class != Ft8MessageClass::GeneralCall
+                    && same_identity(sender, message.sender())
+                    && message
+                        .recipient()
+                        .is_some_and(|expected| same_identity(recipient, expected))
+                    && payload_matches(class, payload) =>
+            {
+                pack77(sender, recipient, payload)
+            }
+            _ => {
+                return Err(not_representable(
+                    "canonical text does not exactly match its owned FT8 class and identities",
+                ));
+            }
+        }
+        .ok_or_else(|| {
+            not_representable("the reviewed FT8 message encoder cannot represent this message")
+        })?;
+
+        let mut verification_hashes = self.hashes.clone();
+        verification_hashes.insert(message.sender().original());
+        if let Some(recipient) = message.recipient() {
+            verification_hashes.insert(recipient.original());
+        }
+        let round_trip = normalize_standard_report(
+            unpack77_with_hash(&encoded, &verification_hashes).ok_or_else(|| {
+                adapter_error("the reviewed FT8 encoder produced a payload it could not unpack")
+            })?,
+        );
+        if round_trip != message.canonical_text() {
+            return Err(not_representable(
+                "encoding would normalize or discard part of the owned message identity",
+            ));
+        }
+        Ok(encoded)
+    }
+}
+
+impl Ft8MessageCodec for OfflineFt8Codec {
+    fn encode(&self, request: &Ft8EncodeRequest) -> Result<PackedFt8Bits, Ft8CodecError> {
+        let encoded = self.encode_owned(&request.message)?;
+        Ok(PackedFt8Bits::new(encoded.map(|bit| bit != 0)))
+    }
+
+    fn decode_bits(
+        &self,
+        request: &Ft8DecodeBitsRequest,
+    ) -> Result<ClassifiedFt8Message, Ft8CodecError> {
+        let bits = request.bits.bits().map(u8::from);
+        classify_bits(&bits, &self.hashes)
+    }
+}
+
+fn classify_bits(
+    bits: &[u8; 77],
+    hashes: &CallsignHashTable,
+) -> Result<ClassifiedFt8Message, Ft8CodecError> {
+    let n3 = read_bits(bits, 71, 3);
+    let i3 = read_bits(bits, 74, 3);
+    let decoded = unpack77_with_hash(bits, hashes);
+
+    if i3 == 0 && n3 == 0 {
+        let text = decoded.ok_or_else(|| invalid_message("empty FT8 free-text payload"))?;
+        return FreeTextFt8Message::new(text)
+            .map(ClassifiedFt8Message::FreeText)
+            .map_err(|_| adapter_error("decoded FT8 free text exceeded the owned boundary"));
+    }
+
+    if !matches!(i3, 1 | 2 | 4) {
+        let text = decoded.unwrap_or_else(|| format!("UNSUPPORTED FT8 TYPE {i3}/{n3}"));
+        return UnsupportedFt8Message::new(
+            text,
+            format!("FT8 type {i3}/{n3} is outside the reviewed Phase 1 message matrix"),
+        )
+        .map(ClassifiedFt8Message::Unsupported)
+        .map_err(|_| adapter_error("unsupported FT8 message exceeded the owned boundary"));
+    }
+
+    let text = normalize_standard_report(
+        decoded.ok_or_else(|| invalid_message("FT8 payload could not be unpacked"))?,
+    );
+    if text.contains("<...>") {
+        return UnresolvedHashFt8Message::new(
+            text,
+            "at least one FT8 callsign hash is not present in the supplied resolution context",
+        )
+        .map(ClassifiedFt8Message::UnresolvedHash)
+        .map_err(|_| adapter_error("unresolved FT8 message exceeded the owned boundary"));
+    }
+
+    classify_supported(&text, directed_class_from_bits(bits, i3))
+}
+
+fn classify_supported(
+    text: &str,
+    bit_class: Option<Ft8MessageClass>,
+) -> Result<ClassifiedFt8Message, Ft8CodecError> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let resolved = match words.as_slice() {
+        ["CQ", sender] => resolved(text, sender, None, Ft8MessageClass::GeneralCall),
+        ["CQ", sender, grid] if is_grid(grid) => {
+            resolved(text, sender, None, Ft8MessageClass::GeneralCall)
+        }
+        [sender, recipient, payload] => {
+            let class = bit_class.or_else(|| classify_payload(payload));
+            match class {
+                Some(class) => resolved(text, sender, Some(recipient), class),
+                None => {
+                    return UnsupportedFt8Message::new(
+                        text,
+                        "directed FT8 payload is outside the reviewed Phase 1 message classes",
+                    )
+                    .map(ClassifiedFt8Message::Unsupported)
+                    .map_err(|_| {
+                        adapter_error("unsupported FT8 message exceeded the owned boundary")
+                    });
+                }
+            }
+        }
+        _ => {
+            return UnsupportedFt8Message::new(
+                text,
+                "FT8 message shape is outside the reviewed Phase 1 message matrix",
+            )
+            .map(ClassifiedFt8Message::Unsupported)
+            .map_err(|_| adapter_error("unsupported FT8 message exceeded the owned boundary"));
+        }
+    };
+
+    match resolved {
+        Ok(message) => Ok(ClassifiedFt8Message::Resolved(message)),
+        Err(()) => AmbiguousFt8Message::new(
+            text,
+            "decoded FT8 identity cannot be mapped unambiguously to owned full callsigns",
+        )
+        .map(ClassifiedFt8Message::Ambiguous)
+        .map_err(|_| adapter_error("ambiguous FT8 message exceeded the owned boundary")),
+    }
+}
+
+fn directed_class_from_bits(bits: &[u8; 77], i3: u32) -> Option<Ft8MessageClass> {
+    match i3 {
+        1 | 2 => {
+            let grid_or_report = read_bits(bits, 59, 15);
+            if grid_or_report <= 32_400 {
+                return Some(Ft8MessageClass::DirectedGrid);
+            }
+            let report_code = grid_or_report - 32_400;
+            match (bits[58], report_code) {
+                (0, 2) => Some(Ft8MessageClass::Roger),
+                (0, 3) => Some(Ft8MessageClass::EndingRr73),
+                (0, 4) => Some(Ft8MessageClass::Ending73),
+                (0, 5..) => Some(Ft8MessageClass::SignalReport),
+                (1, 5..) => Some(Ft8MessageClass::RogerSignalReport),
+                _ => None,
+            }
+        }
+        4 if bits[73] == 0 => match read_bits(bits, 71, 2) {
+            1 => Some(Ft8MessageClass::Roger),
+            2 => Some(Ft8MessageClass::EndingRr73),
+            3 => Some(Ft8MessageClass::Ending73),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+fn resolved(
+    text: &str,
+    sender: &str,
+    recipient: Option<&&str>,
+    class: Ft8MessageClass,
+) -> Result<ResolvedFt8Message, ()> {
+    let sender = parse_identity(sender)?;
+    let recipient = recipient.map(|value| parse_identity(value)).transpose()?;
+    ResolvedFt8Message::new(text, sender, recipient, class).map_err(|_| ())
+}
+
+fn parse_identity(token: &str) -> Result<FullCallsign, ()> {
+    let unbracketed = token
+        .strip_prefix('<')
+        .and_then(|value| value.strip_suffix('>'))
+        .unwrap_or(token);
+    FullCallsign::from_str(unbracketed).map_err(|_| ())
+}
+
+fn same_identity(token: &str, expected: &FullCallsign) -> bool {
+    token
+        .strip_prefix('<')
+        .and_then(|value| value.strip_suffix('>'))
+        .unwrap_or(token)
+        == expected.original()
+}
+
+fn classify_payload(payload: &str) -> Option<Ft8MessageClass> {
+    if payload == "RRR" {
+        Some(Ft8MessageClass::Roger)
+    } else if payload == "73" {
+        Some(Ft8MessageClass::Ending73)
+    } else if payload == "RR73" {
+        Some(Ft8MessageClass::EndingRr73)
+    } else if is_grid(payload) {
+        Some(Ft8MessageClass::DirectedGrid)
+    } else if is_report(payload) {
+        Some(Ft8MessageClass::SignalReport)
+    } else if payload.strip_prefix('R').is_some_and(is_report) {
+        Some(Ft8MessageClass::RogerSignalReport)
+    } else {
+        None
+    }
+}
+
+fn normalize_standard_report(text: String) -> String {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let Some(payload) = words.get(2) else {
+        return text;
+    };
+    let (prefix, numeric) = match payload.strip_prefix('R') {
+        Some(numeric) => ("R", numeric),
+        None => ("", *payload),
+    };
+    let Some((sign, digits)) = numeric.split_at_checked(1) else {
+        return text;
+    };
+    if !matches!(sign, "+" | "-") || digits.len() >= 2 {
+        return text;
+    }
+    let Ok(value) = digits.parse::<u8>() else {
+        return text;
+    };
+    format!("{} {} {prefix}{sign}{value:02}", words[0], words[1])
+}
+
+fn payload_matches(class: Ft8MessageClass, payload: &str) -> bool {
+    classify_payload(payload) == Some(class)
+}
+
+fn is_grid(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 4
+        && matches!(bytes[0], b'A'..=b'R')
+        && matches!(bytes[1], b'A'..=b'R')
+        && bytes[2].is_ascii_digit()
+        && bytes[3].is_ascii_digit()
+}
+
+fn is_report(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    bytes.len() == 3
+        && matches!(bytes[0], b'+' | b'-')
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+}
+
+fn read_bits(bits: &[u8; 77], start: usize, length: usize) -> u32 {
+    bits[start..start + length]
+        .iter()
+        .fold(0, |value, bit| (value << 1) | u32::from(*bit))
+}
+
+fn write_bits(bits: &mut [u8; 77], start: usize, length: usize, value: u32) {
+    for index in 0..length {
+        bits[start + index] = ((value >> (length - 1 - index)) & 1) as u8;
+    }
+}
+
+fn not_representable(detail: &str) -> Ft8CodecError {
+    Ft8CodecError::NotRepresentable {
+        detail: detail.to_owned(),
+    }
+}
+
+fn invalid_message(detail: &str) -> Ft8CodecError {
+    Ft8CodecError::InvalidPackedMessage {
+        detail: detail.to_owned(),
+    }
+}
+
+fn adapter_error(detail: &str) -> Ft8CodecError {
+    Ft8CodecError::Adapter {
+        detail: detail.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn invalid_resolved_identity_remains_ambiguous() {
+        let classified = classify_supported("CQ BAD FN42", None).unwrap();
+        assert!(matches!(classified, ClassifiedFt8Message::Ambiguous(_)));
+    }
+}

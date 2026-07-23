@@ -43,6 +43,11 @@ Refreshing expectations is an explicit review, never a snapshot update:
 Ordinary CI reads only repository contents. It performs no download, runs no
 WSJT-X/JTDX executable, and opens no audio or radio device.
 
+`RR73` deserves special care: it is both the conventional ending token and a
+syntactically valid four-character locator. The reviewed WSJT-X 3.0.0 command
+line vector encodes the locator value. Consumers must inspect the packed field
+rather than infer the owned message class from the rendered text alone.
+
 ## Compatibility limit
 
 Passing this corpus proves only the enumerated message and recording cases

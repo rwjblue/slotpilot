@@ -20,6 +20,7 @@ This directory is the durable design record for the project.
 - [`storage.md`](storage.md): Phase 0 SQLite schema, migration, and deferred-field contract.
 - [`ipc.md`](ipc.md): user-scoped local transport, framing, permissions, and recovery.
 - [`development-release.md`](development-release.md): pinned setup, no-op handshake, and unsigned local artifacts.
+- [`dependencies/mfsk-core-0.7.4.md`](dependencies/mfsk-core-0.7.4.md): exact offline FT8 dependency review and upgrade procedure.
 - [`roadmap.md`](roadmap.md): implementation phases and exit criteria.
 - [`work-tracking.md`](work-tracking.md): issue structure, labels, and dependency practices.
 - [`backlog/phase-0.md`](backlog/phase-0.md): issue-ready initial work.

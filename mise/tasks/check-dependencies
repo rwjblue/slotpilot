@@ -76,3 +76,59 @@ slotpilot-storage"
 assert_workspace_dependencies "slotpilot" "slotpilot-api
 slotpilot-domain
 slotpilot-ipc"
+
+expected_protocol_features="alloc
+fft-rustfft
+ft8
+std"
+actual_protocol_features="$(
+  cargo tree \
+    --package slotpilot-protocol \
+    --edges features \
+    --prefix none |
+    awk '$1 == "mfsk-core" && $2 == "feature" {
+      gsub(/"/, "", $3)
+      print $3
+    }' |
+    LC_ALL=C sort -u
+)"
+if [[ "${actual_protocol_features}" != "${expected_protocol_features}" ]]; then
+  echo "unexpected mfsk-core feature surface" >&2
+  echo "expected:" >&2
+  echo "${expected_protocol_features}" >&2
+  echo "actual:" >&2
+  echo "${actual_protocol_features:-<none>}" >&2
+  exit 1
+fi
+
+if ! rg --fixed-strings --quiet \
+  'mfsk-core = { version = "=0.7.4", default-features = false, features = ["ft8", "fft-rustfft"] }' \
+  Cargo.toml; then
+  echo "mfsk-core must remain exactly pinned with the reviewed feature set" >&2
+  exit 1
+fi
+
+expected_dependency_import="crates/protocol/src/offline_adapter.rs"
+actual_dependency_imports="$(
+  rg --files-with-matches 'mfsk_core::' crates apps --glob '*.rs' |
+    LC_ALL=C sort
+)"
+if [[ "${actual_dependency_imports}" != "${expected_dependency_import}" ]]; then
+  echo "mfsk-core imports escaped the private protocol adapter" >&2
+  echo "expected:" >&2
+  echo "${expected_dependency_import}" >&2
+  echo "actual:" >&2
+  echo "${actual_dependency_imports:-<none>}" >&2
+  exit 1
+fi
+
+cargo doc --locked --no-deps --package slotpilot-protocol
+if find target/doc/slotpilot_protocol \
+  -type f \
+  -name '*.html' \
+  ! -path '*/src/*' \
+  -print0 |
+  xargs -0 rg --ignore-case --quiet 'mfsk[_-]core'; then
+  echo "dependency-specific terminology leaked into public protocol rustdoc" >&2
+  exit 1
+fi

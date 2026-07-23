@@ -8,6 +8,7 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
+mfsk-core.workspace = true
 slotpilot-domain.workspace = true
 thiserror.workspace = true
 
