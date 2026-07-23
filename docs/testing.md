@@ -169,6 +169,14 @@ process, stream, and configuration changes. Only a complete 180,000-sample
 window is valid. Tests supply the observation monotonic time directly and
 never sleep or read a physical clock.
 
+The receive spectrum model uses generated canonical silence, aligned tones,
+and multiple tones. Tests verify integer bin frequencies, Hann coherent-gain
+scaling, the -120 dBFS floor, exact row time/slot identity, overlap cadence,
+fixed capacity, publication coalescing, and visible process/stream/timeline/
+clock resets. Configuration tests reject invalid FFT, overlap, passband, row,
+cadence, CPU-work, and memory shapes. Dependency types remain private, and no
+test opens a device or renderer.
+
 Protocol samples remain deterministic placeholders, not FT8/WSPR algorithms or
 device output. The emergency-unkey fake records a logical request and can
 report stuck PTT, but has no keying mechanism.

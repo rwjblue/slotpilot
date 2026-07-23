@@ -235,6 +235,18 @@ allocation, blocking, filesystem or network I/O, SQLite, protocol decode, rig
 access, logging sinks, or client/GUI locks. The queue implementation review is
 [`dependencies/crossbeam-queue-0.3.13.md`](dependencies/crossbeam-queue-0.3.13.md).
 
+Canonical worker-side samples may also feed the bounded spectrum model. Its
+private reviewed RustFFT adapter plans one 256–4,096 point power-of-two FFT,
+reuses input and scratch buffers, applies a periodic Hann window, and exposes
+only owned integer millihertz/mdBFS bins. Fixed chunk, row, bin, allocation,
+work, and publication bounds keep visualization independent of callback,
+resampling, slot assembly, decode, and client speed. One pending publication
+token coalesces when a consumer is slow; oldest rows evict at fixed capacity.
+Generation, timeline, or clock invalidation clears overlap/history and marks
+the first later row. Detailed behavior is in
+[`spectrum-waterfall.md`](spectrum-waterfall.md), and the dependency review is
+[`dependencies/rustfft-6.4.1.md`](dependencies/rustfft-6.4.1.md).
+
 ## Time boundary
 
 The slot clock samples UTC and monotonic time together, calculates future protocol boundaries, and schedules against monotonic deadlines. It periodically checks the mapping and exposes clock health.

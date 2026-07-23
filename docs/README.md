@@ -21,10 +21,12 @@ This directory is the durable design record for the project.
 - [`ipc.md`](ipc.md): user-scoped local transport, framing, permissions, and recovery.
 - [`audio-timeline.md`](audio-timeline.md): deterministic receive resampling, slot alignment, tolerances, and fail-closed reset semantics.
 - [`receive-clock.md`](receive-clock.md): production UTC/monotonic sampling, receive health latch, alignment gate, and recovery semantics.
+- [`spectrum-waterfall.md`](spectrum-waterfall.md): bounded receive FFT, owned bin/row units, reset metadata, and publication coalescing.
 - [`development-release.md`](development-release.md): pinned setup, no-op handshake, and unsigned local artifacts.
 - [`dependencies/mfsk-core-0.7.4.md`](dependencies/mfsk-core-0.7.4.md): exact offline FT8 dependency review and upgrade procedure.
 - [`dependencies/cpal-0.18.1.md`](dependencies/cpal-0.18.1.md): exact receive-audio dependency, stable-identity, platform, and upgrade review.
 - [`dependencies/crossbeam-queue-0.3.13.md`](dependencies/crossbeam-queue-0.3.13.md): exact bounded callback-queue dependency and real-time boundary review.
+- [`dependencies/rustfft-6.4.1.md`](dependencies/rustfft-6.4.1.md): exact private receive-spectrum FFT dependency and upgrade review.
 - [`roadmap.md`](roadmap.md): implementation phases and exit criteria.
 - [`work-tracking.md`](work-tracking.md): issue structure, labels, and dependency practices.
 - [`backlog/phase-0.md`](backlog/phase-0.md): issue-ready initial work.

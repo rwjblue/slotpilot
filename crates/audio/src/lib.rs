@@ -8,6 +8,7 @@ use thiserror::Error;
 
 mod capture;
 mod discovery;
+mod spectrum;
 mod timeline;
 
 pub use capture::{
@@ -15,6 +16,14 @@ pub use capture::{
     MAX_CAPTURE_QUEUE_BATCHES, SystemInputCapture,
 };
 pub use discovery::SystemInputDiscovery;
+pub use spectrum::{
+    CanonicalSpectrumChunk, DEFAULT_SPECTRUM_FFT_SIZE, DEFAULT_SPECTRUM_MAX_FREQUENCY_HZ,
+    DEFAULT_SPECTRUM_OVERLAP_SAMPLES, DEFAULT_SPECTRUM_PUBLICATION_MILLIS, DEFAULT_WATERFALL_ROWS,
+    MAX_SPECTRUM_BINS, MAX_SPECTRUM_CHUNK_SAMPLES, MAX_SPECTRUM_ROWS_PER_PUSH, MAX_WATERFALL_ROWS,
+    MIN_SPECTRUM_FFT_SIZE, SpectrumBin, SpectrumConfig, SpectrumDiscontinuity, SpectrumFrequency,
+    SpectrumMagnitude, SpectrumModel, SpectrumModelError, SpectrumPushResult, SpectrumRow,
+    SpectrumWindow, WaterfallSnapshot,
+};
 pub use timeline::{
     Ft8ReceiveSlot, Ft8ReceiveTimeline, IncompleteFt8Slot, IncompleteSlotReason,
     MAX_RECEIVE_BATCH_LATENESS_MILLIS, MAX_RECEIVE_CLOCK_REMAP_MILLIS,

@@ -911,6 +911,7 @@ version = "0.1.0-dev.0"
 dependencies = [
  "cpal",
  "crossbeam-queue",
+ "rustfft",
  "thiserror 2.0.19",
 ]
 

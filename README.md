@@ -22,11 +22,12 @@ All clients use the same versioned command/event API. No capability should exist
 > input into a bounded real-time-safe queue. Pure worker-side processing can
 > deterministically align and resample those owned batches into canonical FT8
 > windows. A receive-only clock gate rejects stale, jumped, delayed, or
-> misaligned mappings, but these pieces are not yet composed into the daemon
-> and perform no live decode. No audio output, radio, PTT, logging, transmit,
-> WSPR, or desktop behavior is available; live station capability remains
-> unavailable. Do not treat the repository or its unsigned local artifacts as
-> safe for on-air use.
+> misaligned mappings. A pure bounded spectrum/waterfall model derives
+> rate-limited owned rows from canonical samples without a renderer or wire
+> schema. These pieces are not yet composed into the daemon and perform no
+> live decode. No audio output, radio, PTT, logging, transmit, WSPR, or desktop
+> behavior is available; live station capability remains unavailable. Do not
+> treat the repository or its unsigned local artifacts as safe for on-air use.
 
 ## Product direction
 
@@ -83,9 +84,10 @@ bounded offline FT8 work is tracked by
 owned message classifications, the exact reviewed protocol dependency,
 redistributable fixtures, deterministic in-memory synthesis, bounded
 RIFF/WAVE parsing, and reproducible offline decode. This is protocol evidence,
-not a station feature. Phase 2 live receive remains unimplemented and requires
-its own focused tracker and explicit handoff. WSPR remains planned after the
-FT8 MVP.
+not a station feature. Phase 2 receive-only software is tracked by
+[issue #25](https://github.com/rwjblue/slotpilot/issues/25) and remains
+incomplete until its focused children and human-required validation land.
+WSPR remains planned after the FT8 MVP.
 
 ## Validation
 

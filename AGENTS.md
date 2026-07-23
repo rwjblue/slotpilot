@@ -81,7 +81,10 @@ not yet composed into the daemon or a live decode path. A pure bounded
 fixed-point timeline can align and resample owned batches into canonical FT8
 windows while failing closed on discontinuity and timing uncertainty. A
 production UTC/monotonic sampler and receive clock gate latch unhealthy time,
-reject windows until visible recovery, and create no transmit authority.
+reject windows until visible recovery, and create no transmit authority. A
+pure worker-side spectrum/waterfall model applies a reviewed FFT behind owned
+integer-frequency/magnitude rows, fixed memory/CPU/publication bounds, and
+visible reset metadata; it has no renderer or public schema.
 The repository has a development-only no-op
 daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
 and hardware test seams, initial SQLite durability, and the complete repository

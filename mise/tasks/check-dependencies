@@ -136,6 +136,47 @@ if ! grep -Fq \
   exit 1
 fi
 
+actual_rustfft_features="$(
+  cargo tree \
+    --package slotpilot-audio \
+    --edges features \
+    --prefix none |
+    awk '$1 == "rustfft" && $2 == "feature" {
+      gsub(/"/, "", $3)
+      print $3
+    }' |
+    LC_ALL=C sort -u
+)"
+if [[ -n "${actual_rustfft_features}" ]]; then
+  echo "unexpected RustFFT optional feature surface" >&2
+  echo "${actual_rustfft_features}" >&2
+  exit 1
+fi
+
+if ! grep -Fq \
+  'rustfft = { version = "=6.4.1", default-features = false }' \
+  Cargo.toml; then
+  echo "RustFFT must remain exactly pinned with optional/default features disabled" >&2
+  exit 1
+fi
+
+expected_rustfft_import="crates/audio/src/spectrum.rs"
+actual_rustfft_imports="$(
+  find crates apps \
+    -type f \
+    -name '*.rs' \
+    -exec grep -l 'rustfft::' {} + |
+    LC_ALL=C sort
+)"
+if [[ "${actual_rustfft_imports}" != "${expected_rustfft_import}" ]]; then
+  echo "RustFFT imports escaped the private receive spectrum adapter" >&2
+  echo "expected:" >&2
+  echo "${expected_rustfft_import}" >&2
+  echo "actual:" >&2
+  echo "${actual_rustfft_imports:-<none>}" >&2
+  exit 1
+fi
+
 expected_cpal_imports="$(
   printf '%s\n' \
     "crates/audio/src/capture.rs" \
@@ -266,6 +307,25 @@ if grep -En \
   exit 1
 fi
 
+if grep -En \
+  'cpal::|crossbeam_queue::|mfsk_core::|slotpilot_protocol|rusqlite::|std::thread|sleep\(|build_(input|output)_stream|default_(input|output)_device' \
+  crates/audio/src/spectrum.rs; then
+  echo "receive spectrum gained callback, device, protocol, persistence, sleeping, or rendering behavior" >&2
+  exit 1
+fi
+
+for required in \
+  'MAX_SPECTRUM_CHUNK_SAMPLES' \
+  'MAX_SPECTRUM_ROWS_PER_PUSH' \
+  'MAX_MODEL_BYTES' \
+  'process_with_scratch' \
+  'publication_pending'; do
+  if ! grep -Fq "${required}" crates/audio/src/spectrum.rs; then
+    echo "receive spectrum lost a required work, memory, scratch, or coalescing bound: ${required}" >&2
+    exit 1
+  fi
+done
+
 expected_dependency_import="crates/protocol/src/offline_adapter.rs"
 actual_dependency_imports="$(
   find crates apps \
@@ -298,8 +358,8 @@ if find target/doc/slotpilot_audio \
   -type f \
   -name '*.html' \
   ! -path '*/src/*' \
-  -exec grep -Eiq 'cpal|mfsk[_-]core' {} +; then
-  echo "device or protocol dependency terminology leaked into public audio rustdoc" >&2
+  -exec grep -Eiq 'cpal|mfsk[_-]core|rustfft' {} +; then
+  echo "device, protocol, or FFT dependency terminology leaked into public audio rustdoc" >&2
   exit 1
 fi
 

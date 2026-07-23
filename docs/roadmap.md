@@ -44,9 +44,11 @@ owned receive-audio contracts, deterministic fakes, stable input-device
 discovery, and an isolated exact-device input adapter with a bounded callback
 queue. Pure fixed-point processing aligns/resamples owned batches into
 canonical FT8 windows. A production clock sampler and receive-only health gate
-reject stale, jumped, delayed, or misaligned mappings, but there is no
-daemon-composed capture, live decode or protocol event path, audio output,
-radio, logging, desktop, WSPR, or transmit implementation.
+reject stale, jumped, delayed, or misaligned mappings. A bounded worker-side
+spectrum/waterfall model now has explicit bin/time/magnitude units, reset
+metadata, and coalesced publication. There is still no daemon-composed
+capture, live decode or protocol event path, audio output, radio, logging,
+desktop, WSPR, or transmit implementation.
 
 ## Phase 0 — workspace and contracts
 
