@@ -1,0 +1,57 @@
+name: Agent-ready technical decision
+description: Hand a bounded technical choice directly to an agent
+title: "Decision: "
+labels: ["kind: design", "decision", "agent-ready"]
+body:
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision needed
+      description: State the bounded technical question to resolve.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain why the decision matters, what exists, and which work it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Viable options
+      description: Compare benefits, costs, compatibility, failure behavior, and reversibility.
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Decision criteria
+      description: Include safety, cross-platform behavior, interoperability, maintenance, durable data, testing, and observability as relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Current repository behavior and relevant primary sources are documented.
+        - [ ] Viable options and tradeoffs are compared.
+        - [ ] A recommendation and rationale are recorded.
+        - [ ] A durable decision is promoted to an ADR when warranted.
+        - [ ] Follow-up implementation issues are created or updated.
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and authority boundaries
+      description: State whether the agent may only research or may also create local experiments. Product behavior and external infrastructure are not authorized unless explicit.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Relevant docs, requirements, ADRs, APIs, fixtures, and related issues.

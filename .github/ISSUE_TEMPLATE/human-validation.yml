@@ -1,0 +1,77 @@
+name: Human or hardware validation
+description: Gather structured operator, physical-hardware, credentialed, or real-world evidence
+title: "Validate: "
+labels: ["kind: test", "human-required"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the question that requires human judgment, physical equipment, credentials, or real-world operation.
+    validations:
+      required: true
+  - type: textarea
+    id: entry
+    attributes:
+      label: Entry criteria
+      description: Identify landed implementation, resolved safety decisions, exact revision, and required test procedure.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Operator and environment profile
+      description: Describe relevant aggregate experience, OS, radio, firmware, interface, dummy load or antenna status, and power limit without exposing private station details.
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Protocol
+      description: Define tasks, setup, observations, expected evidence, cleanup, and dekey verification.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Safety, privacy, and evidence handling
+      description: Define consent, sanitization, access, retention, deletion, RF precautions, and evidence sufficient for completion.
+    validations:
+      required: true
+  - type: textarea
+    id: stop
+    attributes:
+      label: Stop-test criteria
+      description: Include unexpected PTT, frequency/mode/power movement, authority failure, evidence loss, privacy exposure, or unsafe behavior as relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: Implementation work, on-air claims, or product expansion not authorized here.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Require aggregate evidence, finding dispositions, retests, cleanup verification, and explicit limits.
+      placeholder: |
+        - [ ] Entry criteria and environment matrix are satisfied.
+        - [ ] The protocol is followed against the recorded revision.
+        - [ ] Material findings receive focused issues or explicit dispositions.
+        - [ ] Blocking findings are fixed and retested or consciously accepted.
+        - [ ] Privacy and cleanup actions are complete.
+        - [ ] The parent tracker records the result and evidence limits.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and tracking
+      placeholder: |
+        - Depends on: ...
+        - Tracked by: ...
+    validations:
+      required: true

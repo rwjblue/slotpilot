@@ -1,0 +1,108 @@
+name: Agent-ready implementation
+description: Define a bounded implementation slice that can be handed directly to an agent
+title: ""
+labels: ["kind: implementation", "agent-ready"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form only when every blocking dependency has landed. Read
+        `AGENTS.md`, the relevant design documents, and accepted ADRs before
+        implementation. The label records readiness; explicit handoff authorizes
+        work.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the single externally observable or boundary-level result.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain why this matters and identify the current source of truth.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Implementation contract
+      description: State behavior and boundaries that must be preserved.
+      value: |
+        The implementation must:
+
+        - Preserve relevant safety and architecture invariants.
+        - Reuse existing public APIs where their semantics fit.
+        - Update maintained documentation when behavior changes.
+        - Avoid durable schema, wire, or authority changes unless explicitly authorized here.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      description: Required capability, integration points, tests, fixtures, and documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Explicitly out of scope
+      description: Adjacent behavior and systems that must not change.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use objective, testable criteria and include the complete repository gate.
+      placeholder: |
+        - [ ] ...
+        - [ ] Important failure paths are covered.
+        - [ ] Maintained documentation is accurate.
+        - [ ] The working-copy diff contains no unrelated changes.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and relationships
+      placeholder: |
+        - Depends on: None
+        - Blocks: None
+        - Tracked by: ...
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and physical-hardware implications
+      description: Cover PTT, TX, audio output, rig mutation, clock, authority, recovery, and hardware, including when there are none.
+    validations:
+      required: true
+  - type: textarea
+    id: discretion
+    attributes:
+      label: Implementation discretion
+      description: State delegated internal choices and choices that require stopping for direction.
+      value: |
+        The agent may decide internal module organization, private types, and
+        test decomposition consistent with repository conventions. Stop for a
+        durable schema or wire change, material public-behavior expansion, new
+        safety or external authority, physical-hardware expansion, or an
+        unresolved architectural choice.
+    validations:
+      required: true
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Relevant docs, requirements, ADRs, APIs, fixtures, and related issues.
+  - type: markdown
+    attributes:
+      value: |
+        After the work lands, record delivered behavior, the Jujutsu change and
+        landed commit or PR, verification results, safety implications,
+        documentation updates, and follow-up issues. Close the issue and update
+        its tracker.

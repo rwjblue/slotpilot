@@ -20,6 +20,7 @@ Status values:
 - [0007 — `thiserror` libraries and `anyhow` applications](0007-error-boundaries.md)
 - [0008 — Cross-platform design with macOS as primary platform](0008-cross-platform-macos-primary.md)
 - [0009 — Initial hardware targets](0009-initial-hardware-targets.md)
+- [0010 — GitHub issues and explicit agent handoffs](0010-github-issues-and-agent-handoffs.md)
 
 ## Template
 

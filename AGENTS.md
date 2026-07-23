@@ -1,3 +1,5 @@
+jj-commit-default: auto
+
 # Agent instructions
 
 This repository is designed so that a local coding agent can orient itself without reconstructing the product from chat history.
@@ -14,7 +16,7 @@ Before changing files, read:
 6. `docs/safety.md`
 7. `docs/roadmap.md`
 8. the relevant records under `docs/decisions/`
-9. the assigned issue or the matching task in `docs/backlog/phase-0.md`
+9. the explicitly assigned GitHub issue
 
 When documentation conflicts, use this priority:
 
@@ -25,6 +27,50 @@ When documentation conflicts, use this priority:
 5. roadmap and backlog descriptions.
 
 Code and tests become authoritative only after implementation exists and the maintained documentation has been updated to match.
+
+## Planning and issue authority
+
+- GitHub Issues are the durable source of truth for unfinished work and open
+  implementation decisions.
+- Roadmaps and backlogs describe sequencing and seed issue creation. Once a
+  focused issue exists, its current contract and GitHub state govern execution.
+- Local or generated plans are temporary execution aids. They do not authorize
+  implementation and must not become the only record of unfinished work.
+- Do not implement from a plan until the user approves it. An explicitly
+  handed-off, agent-ready GitHub issue is approved implementation scope.
+- The `agent-ready` label records readiness only. It does not authorize work to
+  begin without explicit handoff.
+- Stop and request direction before materially expanding an approved issue's
+  public behavior, durable schema, safety authority, physical-hardware scope, or
+  architectural boundary.
+- When implementation changes stable behavior, update the relevant maintained
+  documentation in the same change when practical.
+
+## Issue workflow
+
+When explicitly handed a GitHub issue:
+
+- Confirm every blocking dependency has landed on the remote default branch.
+- Replace `agent-ready` with `in-progress` and inspect the current checkout
+  before planning or implementing.
+- Stay within the issue contract; create a focused follow-up issue rather than
+  silently absorbing newly discovered work.
+- Run verification proportional to the change and the complete repository gate
+  before landing once that gate exists.
+- Land the work before declaring completion. A local-only commit or bookmark
+  does not satisfy a dependency.
+- Post completion evidence, close the focused issue, and update its tracking
+  issue.
+- Review open issues that the landed work unblocks. Apply `agent-ready` only
+  when all remaining dependencies have landed and the issue remains bounded
+  and objectively verifiable. Remove stale readiness when a blocker is found.
+- If blocked by a product, safety, or architecture choice, apply
+  `needs-decision`, explain the blocker and viable choices, and leave the issue
+  open.
+- Treat `human-required` as a completion boundary. Agents may prepare explicitly
+  handed-off artifacts, but may not substitute generated evidence for owner
+  action, credentials, regulatory judgment, physical-hardware validation, or
+  real operator observations.
 
 ## Current repository state
 
@@ -73,6 +119,21 @@ Expected binaries:
 - `slotpilot`: CLI client;
 - desktop application name to remain `SlotPilot` even if its package identifier differs.
 
+## Version control
+
+- Use Jujutsu (`jj`) for maintained local version-control workflows.
+- Do not create Git worktrees unless explicitly requested.
+- Inspect `jj status` before starting and preserve unrelated user changes.
+- Use bookmarks for issue branches and the shared `jj-pr` workflow for ordinary
+  or stacked pull requests.
+- Use `jj commit`, not `jj describe`, for a completed working-copy change so the
+  working copy advances to a new empty revision.
+- Pushable changes must remain signed. Never disable or bypass signing to make a
+  push succeed.
+- A change is landed only when it is reachable from the remote default branch,
+  normally through a merged pull request or an explicitly authorized signed
+  push.
+
 ## Development rules
 
 - Use Rust 2024 edition unless an accepted decision changes it.
@@ -89,7 +150,7 @@ Expected binaries:
 
 A pull request should state:
 
-- the issue/task it implements;
+- the focused issue it implements;
 - the boundary it changes;
 - user-visible or API-visible behavior;
 - tests and commands run;
@@ -100,7 +161,8 @@ For any change related to transmit scheduling, PTT, rig mutation, audio output, 
 
 ## Suggested first assignment
 
-The safest first task is **Phase 0.1: establish the workspace skeleton and boundary crates** from `docs/backlog/phase-0.md`.
+The safest first task is
+[**#2 — Phase 0.1: establish the Rust workspace and boundary shells**](https://github.com/rwjblue/slotpilot/issues/2).
 
 That task should create manifests and compile-only shells for the smallest agreed crate set, establish dependency direction, and add CI for formatting, linting, and tests. It must not implement radio, audio, protocol, persistence, or UI behavior.
 

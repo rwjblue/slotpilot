@@ -1,6 +1,8 @@
 # Contributing to SlotPilot
 
-SlotPilot is currently in its design and bootstrap phase. Contributions should be tied to a scoped issue or a task in `docs/backlog/phase-0.md`.
+SlotPilot is currently in its design and bootstrap phase. Contributions should
+be tied to a focused GitHub issue. The Phase 0 backlog seeded the initial issue
+set but is not a second execution tracker.
 
 ## Before starting
 
@@ -8,9 +10,17 @@ Read `AGENTS.md` and the design documents it references. Safety and architecture
 
 For durable architectural changes, open or update an architecture decision record under `docs/decisions/` before building multiple layers around the new choice.
 
+The `agent-ready` label records that an issue is bounded and unblocked. It does
+not authorize implementation without explicit handoff.
+
 ## Change scope
 
-Prefer one coherent change per pull request. Avoid creating every planned crate, integration, or user interface in a single bootstrap change.
+Prefer one coherent change per pull request and one focused issue per pull
+request. Avoid creating every planned crate, integration, or user interface in a
+single bootstrap change.
+
+Maintained local workflows use Jujutsu (`jj`). Use an issue-scoped bookmark and
+do not treat a local-only commit as landed work.
 
 A good initial pull request has:
 

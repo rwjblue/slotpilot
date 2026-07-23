@@ -1,0 +1,82 @@
+name: Planned implementation
+description: Preserve a bounded future slice whose blocking dependencies remain open
+title: ""
+labels: ["kind: implementation"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: State the single result this issue should deliver after its dependencies land.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain why this matters and identify the current source of truth.
+    validations:
+      required: true
+  - type: textarea
+    id: contract
+    attributes:
+      label: Implementation contract
+      description: State behavior and boundaries that must be preserved.
+      value: |
+        The implementation must:
+
+        - Preserve relevant safety and architecture invariants.
+        - Reuse existing public APIs where their semantics fit.
+        - Update maintained documentation when behavior changes.
+        - Avoid durable schema, wire, or authority changes unless explicitly authorized here.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: In scope
+      description: Required capability, integration points, tests, fixtures, and documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Explicitly out of scope
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Use objective, testable criteria.
+      placeholder: |
+        - [ ] ...
+        - [ ] Important failure paths are covered.
+        - [ ] Maintained documentation is accurate.
+        - [ ] The complete repository gate passes.
+        - [ ] The working-copy diff contains no unrelated changes.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and relationships
+      placeholder: |
+        - Depends on: Open blocking issue(s)
+        - Blocks: Downstream issue(s)
+        - Tracked by: ...
+    validations:
+      required: true
+  - type: textarea
+    id: safety
+    attributes:
+      label: Safety and physical-hardware implications
+      description: Cover PTT, TX, audio output, rig mutation, clock, authority, recovery, and hardware, including when there are none.
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Do not apply `agent-ready` until every blocking dependency has landed,
+        the contract is still current, and its acceptance criteria remain
+        objectively verifiable.

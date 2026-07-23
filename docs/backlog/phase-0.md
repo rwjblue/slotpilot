@@ -1,6 +1,27 @@
 # Phase 0 backlog — workspace and contracts
 
-These tasks are written so they can become GitHub issues. They are ordered but some may proceed in parallel after the first task.
+These contracts seeded the focused GitHub issues under
+[Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1). GitHub
+issues now govern current scope, dependencies, readiness, and completion status;
+this document retains the stable Phase 0 decomposition and acceptance themes.
+Repository operating-model setup is tracked separately in
+[#12](https://github.com/rwjblue/slotpilot/issues/12).
+
+| Task | Durable issue |
+| --- | --- |
+| 0.1 | [#2 — Establish the Rust workspace and boundary shells](https://github.com/rwjblue/slotpilot/issues/2) |
+| 0.2 | [#3 — Define domain identifiers and value types](https://github.com/rwjblue/slotpilot/issues/3) |
+| 0.3 | [#4 — Define API negotiation and a no-op snapshot](https://github.com/rwjblue/slotpilot/issues/4) |
+| 0.4 | [#5 — Implement request-ID idempotency semantics](https://github.com/rwjblue/slotpilot/issues/5) |
+| 0.5 | [#6 — Establish local IPC adapters](https://github.com/rwjblue/slotpilot/issues/6) |
+| 0.6 | [#7 — Add virtual clock and slot arithmetic](https://github.com/rwjblue/slotpilot/issues/7) |
+| 0.7 | [#8 — Define hardware and protocol ports plus fakes](https://github.com/rwjblue/slotpilot/issues/8) |
+| 0.8 | [#9 — Define initial SQLite schema and migrations](https://github.com/rwjblue/slotpilot/issues/9) |
+| 0.9 | [#10 — Add event subscription and replay cursor contract](https://github.com/rwjblue/slotpilot/issues/10) |
+| 0.10 | [#11 — Automate the first development release process](https://github.com/rwjblue/slotpilot/issues/11) |
+
+The tasks are ordered, but some may proceed in parallel after their documented
+dependencies land. Only #2 is initially `agent-ready`.
 
 ## 0.1 Establish the Rust workspace and boundary shells
 

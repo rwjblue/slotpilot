@@ -1,0 +1,55 @@
+name: Product, safety, or owner decision
+description: Resolve a choice that requires human judgment or owner authority
+title: "Decision: "
+labels: ["kind: design", "decision", "human-required"]
+body:
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision needed
+      description: State the product, safety, regulatory, credential, or owner-authority choice.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain why the choice matters, what exists, and which work it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Viable options
+      description: Compare benefits, costs, safety, trust, maintenance, reversibility, and uncertainty.
+    validations:
+      required: true
+  - type: textarea
+    id: non-goals
+    attributes:
+      label: Non-goals
+      description: Implementation and adjacent choices not authorized by this decision.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      placeholder: |
+        - [ ] Viable options and consequences are explicit.
+        - [ ] Relevant technical evidence is summarized.
+        - [ ] The owner records a selected option and rationale.
+        - [ ] Durable architecture or policy is promoted to an ADR when warranted.
+        - [ ] Focused implementation and documentation follow-ups are created.
+    validations:
+      required: true
+  - type: textarea
+    id: assistance
+    attributes:
+      label: Agent assistance boundary
+      value: |
+        An explicitly assigned agent may perform read-only research, compare
+        options, and prepare drafts. It may not substitute its preference for
+        the required human decision or ship product behavior from this issue.
+    validations:
+      required: true

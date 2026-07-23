@@ -4,8 +4,10 @@
 
 ## Scope
 
-- Issue/task:
+- Closes issue:
+- Jujutsu change:
 - Architecture boundary affected:
+- Dependencies landed:
 
 ## Validation
 
@@ -22,3 +24,9 @@
 
 - [ ] Relevant design/API documents were updated.
 - [ ] An ADR was added or updated for a durable architectural decision, or no ADR is needed.
+
+## Completion
+
+- [ ] The issue contract and non-goals remain accurate.
+- [ ] Follow-up work was filed rather than silently absorbed.
+- [ ] The pull request is narrow enough to land as one coherent change.

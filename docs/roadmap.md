@@ -4,9 +4,11 @@ The roadmap is ordered by risk reduction. A phase is not complete merely because
 
 ## Current status
 
-**Phase 0: workspace and contracts — not started.**
+**Phase 0: workspace and contracts — tracked; implementation not started.**
 
 The repository currently contains design documents and project plumbing only.
+Implementation is coordinated through
+[Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1).
 
 ## Phase 0 — workspace and contracts
 

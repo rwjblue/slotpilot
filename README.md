@@ -60,6 +60,11 @@ A contributor or coding agent should read these files in order:
 
 The repository is intentionally implementation-free. The first assigned issue should create only the narrow slice it owns and should preserve the documented boundaries.
 
+Phase 0 implementation is coordinated through
+[tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). GitHub issues
+are the durable execution contracts; roadmap and backlog documents describe
+sequencing and stable acceptance themes.
+
 ## Documentation
 
 See [`docs/README.md`](docs/README.md) for the full index, including the CLI contract, profile model, hardware targets, testing strategy, AntennaBench integration, and architecture decisions.
