@@ -1,14 +1,27 @@
 [workspace]
-members = []
+members = [
+    "apps/cli",
+    "apps/daemon",
+    "crates/api",
+    "crates/domain",
+]
 resolver = "3"
 
 [workspace.package]
 edition = "2024"
 license = "GPL-3.0-or-later"
+version = "0.1.0"
 repository = "https://github.com/rwjblue/slotpilot"
 publish = false
 
+[workspace.dependencies]
+anyhow = "1.0.104"
+slotpilot-api = { path = "crates/api" }
+slotpilot-domain = { path = "crates/domain" }
+thiserror = "2.0.19"
+
 [workspace.lints.rust]
+missing_docs = "deny"
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]

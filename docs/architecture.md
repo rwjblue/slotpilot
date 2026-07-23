@@ -62,6 +62,21 @@ apps/
   desktop/        native desktop client
 ```
 
+The bootstrapped workspace contains only `domain`, `api`, `slotpilotd`, and
+`slotpilot` compile shells. Their allowed internal dependency graph is:
+
+```text
+slotpilotd ─┐
+            ├──> api ──> domain
+slotpilot  ─┘
+```
+
+`domain` has no internal workspace dependency. `api` may depend on `domain`;
+the daemon and CLI composition shells may depend on `api`. The executable
+`mise run check-dependencies` task verifies this allow-list from Cargo's
+resolved graph and is part of `mise run ci`. Later focused issues may extend
+the graph only in the direction described below.
+
 ### Dependency direction
 
 - `domain` depends on no infrastructure or application crate.

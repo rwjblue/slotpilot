@@ -85,15 +85,18 @@ Every transmit-related subsystem needs focused tests for faults at each boundary
 
 ## Cross-platform matrix
 
-Ordinary CI should eventually include:
+Ordinary CI runs the repository-owned `mise run ci` gate on:
 
 - macOS latest supported release;
 - Windows supported release;
 - Linux with representative toolchain;
-- stable Rust;
+- the repository's exact Rust toolchain pin;
 - formatting, lint, unit, integration, fixture, and schema tests.
 
-Audio and IPC adapters receive platform-specific tests. Hardware tests are separate and manually authorized.
+The initial compile-only workspace has no fixture, schema, audio, or IPC tests;
+focused issues add those layers to the same gate as their behavior appears.
+Audio and IPC adapters receive platform-specific tests. Hardware tests are
+separate and manually authorized.
 
 ## Hardware-in-the-loop
 

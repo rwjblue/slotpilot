@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#MISE description="Verify the active Rust toolchain matches the repository pin"
+
+set -euo pipefail
+
+expected="$(
+  sed -n 's/^channel = "\([^"]*\)"$/\1/p' rust-toolchain.toml
+)"
+actual="$(rustc --version | awk '{ print $2 }')"
+
+if [[ -z "${expected}" ]]; then
+  echo "rust-toolchain.toml must contain an exact channel" >&2
+  exit 1
+fi
+
+if [[ "${actual}" != "${expected}" ]]; then
+  echo "expected Rust ${expected}, found ${actual}" >&2
+  exit 1
+fi

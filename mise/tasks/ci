@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Run the complete repository landing gate"
+
+set -euo pipefail
+
+mise run check
+mise run check-dependencies
+mise run check-docs
+mise run check-ci

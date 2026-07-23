@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Run the fast local validation loop"
+
+set -euo pipefail
+
+mise run check-toolchain
+mise run fmt
+mise run lint
+mise run test

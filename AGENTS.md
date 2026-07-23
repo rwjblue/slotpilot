@@ -74,9 +74,15 @@ When explicitly handed a GitHub issue:
 
 ## Current repository state
 
-The repository is a design scaffold. There is deliberately no Rust application or library implementation yet. Do not create broad speculative implementations in an orientation task.
+The repository has a minimal compile-only Rust workspace containing domain,
+API, daemon, and CLI boundary shells. There is deliberately no station,
+protocol, persistence, transport, or user-interface behavior yet. Do not
+create broad speculative implementations in an orientation task.
 
-A first implementation pull request should be narrow, reviewable, and tied to one Phase 0 task. It should not open an audio device, connect to a physical rig, key PTT, transmit RF, or introduce a desktop framework unless the assigned issue explicitly calls for it.
+An implementation pull request should be narrow, reviewable, and tied to one
+Phase 0 task. It should not open an audio device, connect to a physical rig,
+key PTT, transmit RF, or introduce a desktop framework unless the assigned
+issue explicitly calls for it.
 
 ## Non-negotiable boundaries
 
@@ -149,6 +155,15 @@ Expected binaries:
 - Add an architecture decision record when changing a durable boundary, not for routine implementation detail.
 - Keep generated files out of the repository unless they are deterministic and reviewed artifacts required by packaging or tests.
 
+## Validation
+
+- Use `mise run check` for the fast local formatting, Clippy, and workspace-test
+  loop.
+- Use `mise run ci` for the complete repository landing gate, including
+  toolchain, dependency-direction, documentation, and CI-configuration checks.
+- Run the complete gate before committing, opening a pull request, and landing
+  a change.
+
 ## Pull-request expectations
 
 A pull request should state:
@@ -162,12 +177,12 @@ A pull request should state:
 
 For any change related to transmit scheduling, PTT, rig mutation, audio output, automatic caller selection, duplicate policy, profile resolution, or durable side effects, include focused failure-path tests.
 
-## Suggested first assignment
+## Assignment source
 
-The safest first task is
-[**#2 — Phase 0.1: establish the Rust workspace and boundary shells**](https://github.com/rwjblue/slotpilot/issues/2).
-
-That task should create manifests and compile-only shells for the smallest agreed crate set, establish dependency direction, and add CI for formatting, linting, and tests. It must not implement radio, audio, protocol, persistence, or UI behavior.
+Use the focused issues linked from
+[Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1). A
+downstream issue may begin only after its dependencies have landed, its
+contract has been revalidated, and the user explicitly hands it off.
 
 ## Definition of done
 

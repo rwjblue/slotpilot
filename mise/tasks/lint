@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run Clippy with warnings denied"
+
+set -euo pipefail
+
+cargo clippy --workspace --all-targets --all-features -- -D warnings

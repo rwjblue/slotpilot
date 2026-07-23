@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+#MISE description="Verify workspace crate dependency direction"
+
+set -euo pipefail
+
+workspace_dependencies() {
+  local package="$1"
+
+  cargo tree \
+    --package "${package}" \
+    --edges normal,build,dev \
+    --depth 1 \
+    --prefix none |
+    sed '1d' |
+    awk '$1 ~ /^slotpilot($|-|d$)/ { print $1 }' |
+    LC_ALL=C sort -u
+}
+
+assert_workspace_dependencies() {
+  local package="$1"
+  local expected="$2"
+  local actual
+
+  actual="$(workspace_dependencies "${package}")"
+  if [[ "${actual}" != "${expected}" ]]; then
+    echo "unexpected workspace dependencies for ${package}" >&2
+    echo "expected:" >&2
+    echo "${expected:-<none>}" >&2
+    echo "actual:" >&2
+    echo "${actual:-<none>}" >&2
+    return 1
+  fi
+}
+
+expected_packages="slotpilot
+slotpilot-api
+slotpilot-domain
+slotpilotd"
+actual_packages="$(
+  cargo tree \
+    --workspace \
+    --edges normal,build,dev \
+    --depth 0 \
+    --prefix none |
+    awk '$1 ~ /^slotpilot($|-|d$)/ { print $1 }' |
+    LC_ALL=C sort -u
+)"
+if [[ "${actual_packages}" != "${expected_packages}" ]]; then
+  echo "unexpected workspace package set" >&2
+  echo "expected:" >&2
+  echo "${expected_packages}" >&2
+  echo "actual:" >&2
+  echo "${actual_packages}" >&2
+  exit 1
+fi
+
+assert_workspace_dependencies "slotpilot-domain" ""
+assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
+assert_workspace_dependencies "slotpilotd" "slotpilot-api"
+assert_workspace_dependencies "slotpilot" "slotpilot-api"

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+#MISE description="Verify required documentation and validation commands"
+
+set -euo pipefail
+
+required_files=(
+  "AGENTS.md"
+  "CONTRIBUTING.md"
+  "README.md"
+  "docs/architecture.md"
+  "docs/safety.md"
+  "docs/testing.md"
+)
+
+for file in "${required_files[@]}"; do
+  if [[ ! -f "${file}" ]]; then
+    echo "missing required documentation: ${file}" >&2
+    exit 1
+  fi
+done
+
+for file in "AGENTS.md" "CONTRIBUTING.md"; do
+  for command in "mise run check" "mise run ci"; do
+    if ! grep -Fq "${command}" "${file}"; then
+      echo "${file} must document '${command}'" >&2
+      exit 1
+    fi
+  done
+done

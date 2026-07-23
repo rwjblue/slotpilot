@@ -1,0 +1,15 @@
+[package]
+name = "slotpilot"
+description = "SlotPilot command-line client"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+slotpilot-api.workspace = true
+
+[lints]
+workspace = true

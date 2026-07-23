@@ -41,13 +41,18 @@ A good initial pull request has:
 
 ## Validation
 
-The exact commands will be established with the first workspace issue. The intended baseline is:
+Use the repository tasks rather than maintaining a separate local command
+sequence:
 
 ```text
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-cargo test --workspace --all-features
+mise run check
+mise run ci
 ```
+
+`mise run check` is the fast loop covering formatting, Clippy with warnings
+denied, and workspace tests. `mise run ci` adds the toolchain,
+dependency-direction, documentation, and CI-configuration checks and is the
+complete landing gate.
 
 Tests that require a physical radio, audio interface, antenna, network service, or operator transmission must not run in ordinary CI.
 

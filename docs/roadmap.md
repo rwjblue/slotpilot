@@ -4,10 +4,11 @@ The roadmap is ordered by risk reduction. A phase is not complete merely because
 
 ## Current status
 
-**Phase 0: workspace and contracts — tracked; implementation not started.**
+**Phase 0: workspace and contracts — implementation in progress.**
 
-The repository currently contains design documents and project plumbing only.
-Implementation is coordinated through
+The repository contains design documents and the minimal compile-only Rust
+workspace, task surface, and CI foundation. Remaining implementation is
+coordinated through
 [Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1).
 
 ## Phase 0 — workspace and contracts
