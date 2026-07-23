@@ -1,10 +1,9 @@
 //! Consumer-owned ports for future hardware and protocol adapters.
 
+use slotpilot_audio::{CaptureBatch, InputFault, InputHealth};
 use slotpilot_domain::{DialFrequency, OperatingMode, Power, TransmissionId};
 use slotpilot_protocol::{Ft8Decode, Ft8WaveformError, Ft8WaveformRequest, PcmBuffer};
 use thiserror::Error;
-
-use crate::MonotonicInstant;
 
 /// Snapshot of verified rig state using only SlotPilot-owned values.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,57 +63,12 @@ pub trait RigPort {
     fn apply(&mut self, command: RigCommand) -> Result<RigState, RigFault>;
 }
 
-/// Observable audio health using no device-library types.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AudioHealth {
-    /// Estimated end-to-end latency.
-    pub latency_millis: u32,
-    /// Estimated sample-clock drift.
-    pub drift_parts_per_million: i32,
-}
-
-/// Typed audio failure injected or reported at a monotonic instant.
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-#[error("audio fault at {occurred_at:?}: {kind:?}")]
-pub struct AudioFault {
-    /// Process-local occurrence time.
-    pub occurred_at: MonotonicInstant,
-    /// Specific fault kind.
-    pub kind: AudioFaultKind,
-}
-
-/// Audio failures relevant to future operations admission.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AudioFaultKind {
-    /// Configured device disappeared.
-    DeviceLost,
-    /// Input producer overran its bounded queue.
-    Overrun,
-    /// Output consumer underrun occurred.
-    Underrun,
-    /// Samples exceeded the configured clipping threshold.
-    Clipping,
-    /// Sample clock drift crossed its configured bound.
-    Drift {
-        /// Observed signed drift.
-        parts_per_million: i32,
-    },
-    /// Measured latency crossed its configured bound.
-    Latency {
-        /// Observed latency.
-        millis: u32,
-    },
-    /// Callback execution was delayed beyond its configured bound.
-    CallbackDelay {
-        /// Observed callback delay.
-        millis: u32,
-    },
-}
-
-/// Audio-health boundary consumed by operations.
-pub trait AudioPort {
-    /// Returns current health or the next deterministic fault.
-    fn health(&mut self) -> Result<AudioHealth, AudioFault>;
+/// Receive-only audio boundary consumed by operations outside the callback.
+pub trait ReceiveAudioPort {
+    /// Returns current owned input health or the next deterministic fault.
+    fn health(&mut self) -> Result<InputHealth, InputFault>;
+    /// Drains one already-bounded batch without blocking.
+    fn next_batch(&mut self) -> Result<Option<CaptureBatch>, InputFault>;
 }
 
 /// Protocol boundary consumed by operations.

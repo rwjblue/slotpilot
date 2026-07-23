@@ -3,6 +3,7 @@ members = [
     "apps/cli",
     "apps/daemon",
     "crates/api",
+    "crates/audio",
     "crates/domain",
     "crates/ipc",
     "crates/operations",
@@ -30,6 +31,7 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sha2 = "0.10.9"
 slotpilot-api = { path = "crates/api" }
+slotpilot-audio = { path = "crates/audio" }
 slotpilot-domain = { path = "crates/domain" }
 slotpilot-ipc = { path = "crates/ipc" }
 slotpilot-operations = { path = "crates/operations" }

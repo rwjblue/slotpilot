@@ -34,6 +34,7 @@ assert_workspace_dependencies() {
 
 expected_packages="slotpilot
 slotpilot-api
+slotpilot-audio
 slotpilot-domain
 slotpilot-ipc
 slotpilot-operations
@@ -60,12 +61,15 @@ if [[ "${actual_packages}" != "${expected_packages}" ]]; then
 fi
 
 assert_workspace_dependencies "slotpilot-domain" ""
+assert_workspace_dependencies "slotpilot-audio" ""
 assert_workspace_dependencies "slotpilot-ipc" "slotpilot-api"
 assert_workspace_dependencies "slotpilot-protocol" "slotpilot-domain"
-assert_workspace_dependencies "slotpilot-operations" "slotpilot-domain
+assert_workspace_dependencies "slotpilot-operations" "slotpilot-audio
+slotpilot-domain
 slotpilot-protocol"
 assert_workspace_dependencies "slotpilot-storage" "slotpilot-domain"
-assert_workspace_dependencies "slotpilot-testkit" "slotpilot-domain
+assert_workspace_dependencies "slotpilot-testkit" "slotpilot-audio
+slotpilot-domain
 slotpilot-operations
 slotpilot-protocol"
 assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
@@ -135,6 +139,16 @@ if find target/doc/slotpilot_protocol \
   exit 1
 fi
 
+cargo doc --locked --no-deps --package slotpilot-audio
+if find target/doc/slotpilot_audio \
+  -type f \
+  -name '*.html' \
+  ! -path '*/src/*' \
+  -exec grep -Eiq 'cpal|mfsk[_-]core' {} +; then
+  echo "device or protocol dependency terminology leaked into public audio rustdoc" >&2
+  exit 1
+fi
+
 if find \
   crates/protocol/src \
   crates/protocol/tests \
@@ -144,5 +158,16 @@ if find \
     'std::process|std::net|Command::new|cpal|hamlib|rigctld|serialport' \
     {} +; then
   echo "offline protocol code gained an external process, network, device, or rig path" >&2
+  exit 1
+fi
+
+if find \
+  crates/audio/src \
+  -type f \
+  -name '*.rs' \
+  -exec grep -En \
+    'std::process|std::net|std::fs|Command::new|cpal|mfsk_core|hamlib|rigctld|serialport' \
+    {} +; then
+  echo "owned receive-audio contracts gained a process, I/O, device, protocol, or rig path" >&2
   exit 1
 fi

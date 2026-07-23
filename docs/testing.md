@@ -123,13 +123,21 @@ The test kit provides deterministic implementations that can inject:
 - clipping, overrun, underrun, and callback delay;
 - sample-clock drift and latency changes.
 
-The `operations` crate owns rig, audio, and logical transmit-supervisor values
-and consumes the `slotpilot-protocol` owned boundary. `slotpilot-testkit`
-implements the ports with in-memory fakes. Faults are queued deterministically;
-timing-sensitive audio faults carry a virtual monotonic instant. Protocol
-samples remain deterministic placeholders, not FT8/WSPR algorithms or device
-output. The emergency-unkey fake records a logical request and can report stuck
-PTT, but has no keying mechanism.
+`slotpilot-audio` owns dependency-free receive device identity, configuration,
+generation, source-frame position, UTC/monotonic mapping, bounded batch,
+canonical FT8 window, health, discontinuity, and fault values.
+`slotpilot-operations` owns the consumer port and
+`slotpilot-testkit` supplies an in-memory `FakeInputAudio`. Tests enqueue normal
+batches and timestamped device loss, overflow, discontinuity, drift, clipping,
+callback-delay, and backend faults deterministically without sleeping.
+Sequence tests reject generation changes, overlap/regression, unmarked gaps,
+and monotonic regression; explicit discontinuities remain visible. The fake
+allocates no physical resource and has no device-discovery, playback,
+protocol-decode, persistence, rig, PTT, or RF path.
+
+Protocol samples remain deterministic placeholders, not FT8/WSPR algorithms or
+device output. The emergency-unkey fake records a logical request and can
+report stuck PTT, but has no keying mechanism.
 
 ### Persistence and crash tests
 

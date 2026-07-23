@@ -460,6 +460,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "slotpilot-audio"
+version = "0.1.0-dev.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "slotpilot-domain"
 version = "0.1.0-dev.0"
 dependencies = [
@@ -486,6 +493,7 @@ dependencies = [
 name = "slotpilot-operations"
 version = "0.1.0-dev.0"
 dependencies = [
+ "slotpilot-audio",
  "slotpilot-domain",
  "slotpilot-protocol",
  "thiserror",
@@ -516,6 +524,7 @@ dependencies = [
 name = "slotpilot-testkit"
 version = "0.1.0-dev.0"
 dependencies = [
+ "slotpilot-audio",
  "slotpilot-domain",
  "slotpilot-operations",
  "slotpilot-protocol",

@@ -1,6 +1,6 @@
 [package]
-name = "slotpilot-operations"
-description = "Deterministic SlotPilot operating coordination contracts"
+name = "slotpilot-audio"
+description = "SlotPilot-owned receive-only audio contracts"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
@@ -8,9 +8,6 @@ repository.workspace = true
 version.workspace = true
 
 [dependencies]
-slotpilot-audio.workspace = true
-slotpilot-domain.workspace = true
-slotpilot-protocol.workspace = true
 thiserror.workspace = true
 
 [lints]

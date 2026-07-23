@@ -31,7 +31,7 @@ requirements.
 ## Current status
 
 **Phase 0: workspace and contracts — complete. Phase 1: offline FT8 protocol
-harness — complete. Phase 2 has not started.**
+harness — complete. Phase 2 receive-only software work is in progress.**
 
 The repository contains the no-op daemon/CLI handshake, typed contracts,
 deterministic test seams, local IPC, initial storage, and complete CI
@@ -40,8 +40,9 @@ foundation tracked by
 [Phase 1 tracker #16](https://github.com/rwjblue/slotpilot/issues/16) records
 the owned offline FT8 contract, reviewed dependency/fixtures, message adapter,
 PCM synthesis, WAV decode, and bounded conformance evidence. The repository has
-no live audio or protocol event path, radio, logging, desktop, WSPR, or transmit
-implementation.
+dependency-free owned receive-audio contracts and deterministic fakes, but no
+device adapter, live audio or protocol event path, radio, logging, desktop,
+WSPR, or transmit implementation.
 
 ## Phase 0 — workspace and contracts
 

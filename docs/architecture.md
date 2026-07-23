@@ -62,9 +62,10 @@ apps/
   desktop/        native desktop client
 ```
 
-The bootstrapped workspace contains `domain`, `api`, `ipc`, `protocol`,
-`operations`, `storage`, `testkit`, `slotpilotd`, and `slotpilot`. Their
-allowed internal dependency graph is:
+The workspace contains `domain`, `api`, `ipc`, `protocol`, `audio`,
+`operations`, `storage`, `testkit`, `slotpilotd`, and `slotpilot`. Phase 2
+begins with an owned, receive-only `audio` contract; it contains no device
+adapter. Their allowed internal dependency graph is:
 
 ```text
 slotpilotd ─┐
@@ -75,17 +76,21 @@ slotpilotd ─┐
 slotpilot  ─┴──> ipc ──> api
 
 protocol ─────> domain
+audio
+operations ───> audio
 operations ───> protocol ───> domain
+testkit ──────> audio
 testkit ──────> operations ──> protocol ──> domain
 storage ────────────────────> domain
 ```
 
-`domain` has no internal workspace dependency. `protocol` may depend on
-`domain`; `operations` may depend on both. `api` may depend on `domain`; the
-daemon and CLI composition shells may depend on `api`. The executable `mise
-run check-dependencies` task verifies this allow-list from Cargo's resolved
-graph and is part of `mise run ci`. Later focused issues may extend the graph
-only in the direction described below.
+`domain` and the owned `audio` contract have no internal workspace dependency.
+`protocol` may depend on `domain`; `operations` may depend on `audio`,
+`protocol`, and `domain`. `api` may depend on `domain`; the daemon and CLI
+composition shells may depend on `api`. The executable `mise run
+check-dependencies` task verifies this allow-list from Cargo's resolved graph
+and is part of `mise run ci`. Later focused issues may extend the graph only in
+the direction described below.
 
 ### Dependency direction
 
@@ -176,6 +181,22 @@ CPAL is the planned cross-platform stream layer. Real-time callbacks move sample
 A timestamped audio timeline maps device samples into protocol windows. Transmit waveforms are fully prepared before their slot deadline and placed at a deterministic sample position.
 
 Platform adapters provide stable device identities and permission/setup behavior.
+
+The initial Phase 2 contract is receive-only and dependency-free. Stable input
+identity is an opaque platform value structurally separate from display
+metadata; display names can never select or recover a device. Checked input
+configurations record sample rate, channel count and selection, and source
+sample format. Bounded normalized batches carry process/stream generations,
+monotonic source-frame positions, paired UTC/monotonic evidence, callback
+diagnostics, and explicit discontinuities. A checked canonical FT8 receive
+window is exactly 180,000 mono signed-16-bit samples at 12,000 Hz aligned to a
+15-second UTC boundary, matching the offline decoder without importing
+protocol implementation types.
+
+Constructing owned batches is worker-side work. A later live callback may only
+convert/copy into and move preallocated bounded storage, update counters, and
+signal faults without allocation, blocking, filesystem or network I/O,
+SQLite, protocol decode, rig access, logging sinks, or client/GUI locks.
 
 ## Time boundary
 

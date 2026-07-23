@@ -74,7 +74,9 @@ When explicitly handed a GitHub issue:
 
 ## Current repository state
 
-Phases 0 and 1 are complete. The repository has a development-only no-op
+Phases 0 and 1 are complete. Phase 2 has begun with dependency-free,
+receive-only audio contracts and deterministic fakes; no device adapter exists.
+The repository has a development-only no-op
 daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
 and hardware test seams, initial SQLite durability, and the complete repository
 gate. `slotpilot-protocol` also has a bounded offline FT8-only harness:

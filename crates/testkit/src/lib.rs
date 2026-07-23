@@ -5,10 +5,11 @@
 
 use std::collections::VecDeque;
 
+use slotpilot_audio::{CaptureBatch, InputFault, InputHealth};
 use slotpilot_domain::TransmissionId;
 use slotpilot_operations::{
-    AudioFault, AudioHealth, AudioPort, EmergencyUnkeyError, ProtocolPort, RigCommand, RigFault,
-    RigPort, RigState, TransmitSupervisorPort, TxInhibition,
+    EmergencyUnkeyError, ProtocolPort, ReceiveAudioPort, RigCommand, RigFault, RigPort, RigState,
+    TransmitSupervisorPort, TxInhibition,
 };
 use slotpilot_protocol::{Ft8Decode, Ft8WaveformError, Ft8WaveformRequest, PcmBuffer, PcmError};
 
@@ -55,35 +56,49 @@ impl RigPort for FakeRig {
     }
 }
 
-/// Deterministic in-memory audio-health port.
+/// Deterministic in-memory receive-audio port.
 #[derive(Debug, Clone)]
-pub struct FakeAudio {
-    health: AudioHealth,
-    faults: VecDeque<AudioFault>,
+pub struct FakeInputAudio {
+    health: InputHealth,
+    events: VecDeque<Result<CaptureBatch, InputFault>>,
 }
 
-impl FakeAudio {
+impl FakeInputAudio {
     /// Creates a fake with initial health.
     #[must_use]
-    pub fn new(health: AudioHealth) -> Self {
+    pub fn new(health: InputHealth) -> Self {
         Self {
             health,
-            faults: VecDeque::new(),
+            events: VecDeque::new(),
         }
     }
 
-    /// Queues one timestamped failure for the next health query.
-    pub fn inject(&mut self, fault: AudioFault) {
-        self.faults.push_back(fault);
+    /// Queues one normal bounded capture batch.
+    pub fn emit(&mut self, batch: CaptureBatch) {
+        self.events.push_back(Ok(batch));
+    }
+
+    /// Queues one timestamped failure.
+    pub fn inject(&mut self, fault: InputFault) {
+        self.events.push_back(Err(fault));
+    }
+
+    /// Replaces the deterministic health snapshot.
+    pub fn set_health(&mut self, health: InputHealth) {
+        self.health = health;
     }
 }
 
-impl AudioPort for FakeAudio {
-    fn health(&mut self) -> Result<AudioHealth, AudioFault> {
-        if let Some(fault) = self.faults.pop_front() {
-            return Err(fault);
+impl ReceiveAudioPort for FakeInputAudio {
+    fn health(&mut self) -> Result<InputHealth, InputFault> {
+        if let Some(Err(fault)) = self.events.front() {
+            return Err(fault.clone());
         }
-        Ok(self.health.clone())
+        Ok(self.health)
+    }
+
+    fn next_batch(&mut self) -> Result<Option<CaptureBatch>, InputFault> {
+        self.events.pop_front().transpose()
     }
 }
 
@@ -172,10 +187,13 @@ impl TransmitSupervisorPort for FakeTransmitSupervisor {
 
 #[cfg(test)]
 mod tests {
-    use slotpilot_domain::{DialFrequency, OperatingMode, Power};
-    use slotpilot_operations::{
-        AudioFaultKind, Clock, ClockSample, MonotonicInstant, UtcInstant, VirtualClock,
+    use slotpilot_audio::{
+        CaptureDiagnostics, CaptureDiscontinuity, CaptureDiscontinuityKind, CapturePosition,
+        CaptureTimeEvidence, InputConfiguration, InputFaultKind, InputSampleFormat,
+        ProcessGeneration, StreamGeneration,
     };
+    use slotpilot_domain::{DialFrequency, OperatingMode, Power};
+    use slotpilot_operations::{Clock, ClockSample, MonotonicInstant, UtcInstant, VirtualClock};
     use slotpilot_protocol::{
         ClassifiedFt8Message, Ft8DecodeMetadata, Ft8MessageClass, Ft8WaveformPlacement,
         PcmAmplitudePermille, PcmFormat, PcmSampleFormat, ResolvedFt8Message,
@@ -216,35 +234,78 @@ mod tests {
     }
 
     #[test]
-    fn fake_audio_injects_timestamped_failures_under_virtual_time() {
+    fn fake_audio_produces_batches_and_timestamped_failures_under_virtual_time() {
         let clock = VirtualClock::new(ClockSample {
             utc: UtcInstant::from_unix_millis(1_000).unwrap(),
             monotonic: MonotonicInstant::from_millis(10),
         });
-        let mut audio = FakeAudio::new(AudioHealth {
-            latency_millis: 20,
-            drift_parts_per_million: 0,
-        });
+        let process_generation = ProcessGeneration::new(1).unwrap();
+        let stream_generation = StreamGeneration::new(1).unwrap();
+        let configuration =
+            InputConfiguration::new(48_000, 1, InputSampleFormat::Float32, 0).unwrap();
+        let mut audio = FakeInputAudio::new(InputHealth::new(20, 0, 0, 0, 1).unwrap());
+        let batch = CaptureBatch::new(
+            process_generation,
+            stream_generation,
+            configuration,
+            CaptureTimeEvidence::new(
+                CapturePosition::from_frames(0),
+                1_000,
+                clock.sample().monotonic.millis(),
+            )
+            .unwrap(),
+            None,
+            CaptureDiagnostics::new(0, 1).unwrap(),
+            vec![0; 64],
+        )
+        .unwrap();
+        audio.emit(batch.clone());
+        assert_eq!(audio.next_batch().unwrap(), Some(batch));
         let kinds = [
-            AudioFaultKind::DeviceLost,
-            AudioFaultKind::Overrun,
-            AudioFaultKind::Underrun,
-            AudioFaultKind::Clipping,
-            AudioFaultKind::Drift {
+            InputFaultKind::DeviceLost,
+            InputFaultKind::Overflow { dropped_frames: 64 },
+            InputFaultKind::Discontinuity(CaptureDiscontinuityKind::BackendGap),
+            InputFaultKind::Clipping { sample_count: 2 },
+            InputFaultKind::Drift {
                 parts_per_million: 50,
             },
-            AudioFaultKind::Latency { millis: 200 },
-            AudioFaultKind::CallbackDelay { millis: 40 },
+            InputFaultKind::CallbackDelay { millis: 40 },
+            InputFaultKind::BackendFailure,
         ];
         for kind in kinds {
-            let fault = AudioFault {
-                occurred_at: clock.sample().monotonic,
+            let fault = InputFault {
+                process_generation,
+                stream_generation: Some(stream_generation),
+                monotonic_millis: clock.sample().monotonic.millis(),
                 kind,
             };
             audio.inject(fault.clone());
-            assert_eq!(audio.health(), Err(fault));
+            assert_eq!(audio.health(), Err(fault.clone()));
+            assert_eq!(audio.next_batch(), Err(fault));
             clock.advance(1).unwrap();
         }
+        let discontinuity = CaptureDiscontinuity {
+            at: CapturePosition::from_frames(128),
+            kind: CaptureDiscontinuityKind::Overflow,
+            dropped_frames: 64,
+        };
+        let marked = CaptureBatch::new(
+            process_generation,
+            stream_generation,
+            configuration,
+            CaptureTimeEvidence::new(
+                CapturePosition::from_frames(128),
+                1_001,
+                clock.sample().monotonic.millis(),
+            )
+            .unwrap(),
+            Some(discontinuity),
+            CaptureDiagnostics::new(2, 40).unwrap(),
+            vec![i16::MAX; 64],
+        )
+        .unwrap();
+        audio.emit(marked.clone());
+        assert_eq!(audio.next_batch().unwrap(), Some(marked));
     }
 
     #[test]
