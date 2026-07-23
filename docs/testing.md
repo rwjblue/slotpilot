@@ -62,6 +62,13 @@ The test kit provides deterministic implementations that can inject:
 - clipping, overrun, underrun, and callback delay;
 - sample-clock drift and latency changes.
 
+The `operations` crate owns rig, audio, protocol, and logical
+transmit-supervisor traits and values. `slotpilot-testkit` implements them with
+in-memory fakes. Faults are queued deterministically; timing-sensitive audio
+faults carry a virtual monotonic instant. Protocol samples are placeholders,
+not FT8/WSPR algorithms or device output. The emergency-unkey fake records a
+logical request and can report stuck PTT, but has no keying mechanism.
+
 ### Persistence and crash tests
 
 Test transactional behavior around:
