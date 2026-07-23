@@ -1,0 +1,13 @@
+{
+  "api_version": 1,
+  "request_id": "req_01jabcde9",
+  "outcome": "error",
+  "payload": {
+    "code": "request_id_conflict",
+    "message": "request ID was already accepted for a different command",
+    "retryable": false,
+    "details": {
+      "kind": "request_conflict"
+    }
+  }
+}

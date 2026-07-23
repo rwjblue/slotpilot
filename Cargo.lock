@@ -288,7 +288,11 @@ name = "slotpilotd"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "serde_json",
  "slotpilot-api",
+ "slotpilot-domain",
+ "slotpilot-storage",
+ "thiserror",
 ]
 
 [[package]]

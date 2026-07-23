@@ -5,7 +5,7 @@
 //! receipts. It deliberately contains no final QSO, WSPR, ADIF, upload, live
 //! arm token, transmit authority, or resumable PTT state.
 
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use slotpilot_domain::{CommandId, RequestId};
@@ -31,6 +31,9 @@ pub enum StorageError {
     /// A persisted typed identity failed validation.
     #[error("invalid persisted identity: {0}")]
     InvalidIdentity(#[from] slotpilot_domain::IdError),
+    /// A non-request unique identity collided without a matching request row.
+    #[error("durable identity collision")]
+    IdentityCollision,
 }
 
 /// Original accepted command identity and result recovered for safe retry.
@@ -46,6 +49,15 @@ pub struct AcceptedCommand {
     pub original_result: Vec<u8>,
     /// Acceptance time in UTC milliseconds since the Unix epoch.
     pub accepted_utc_millis: i64,
+}
+
+/// Atomic outcome of attempting to accept a request identity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AcceptOutcome {
+    /// This call inserted the supplied accepted command.
+    Inserted(AcceptedCommand),
+    /// Another call had already accepted the request identity.
+    Existing(AcceptedCommand),
 }
 
 /// SQLite store with migrations applied on open.
@@ -65,6 +77,7 @@ impl Store {
     }
 
     fn from_connection(connection: Connection) -> Result<Self, StorageError> {
+        connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         let mut store = Self { connection };
         store.migrate()?;
@@ -72,9 +85,10 @@ impl Store {
     }
 
     fn migrate(&mut self) -> Result<(), StorageError> {
-        let found: u32 = self
+        let transaction = self
             .connection
-            .pragma_query_value(None, "user_version", |row| row.get(0))?;
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let found: u32 = transaction.pragma_query_value(None, "user_version", |row| row.get(0))?;
         if found > SCHEMA_VERSION {
             return Err(StorageError::SchemaTooNew {
                 found,
@@ -82,13 +96,10 @@ impl Store {
             });
         }
         if found < 1 {
-            let transaction = self
-                .connection
-                .transaction_with_behavior(TransactionBehavior::Immediate)?;
             transaction.execute_batch(MIGRATION_1)?;
             transaction.pragma_update(None, "user_version", 1)?;
-            transaction.commit()?;
         }
+        transaction.commit()?;
         Ok(())
     }
 
@@ -125,41 +136,45 @@ impl Store {
         &self,
         request_id: &RequestId,
     ) -> Result<Option<AcceptedCommand>, StorageError> {
-        let row = self
+        read_accepted_command(&self.connection, request_id)
+    }
+
+    /// Atomically inserts a command or returns the winner for its request ID.
+    ///
+    /// `INSERT OR IGNORE` and the subsequent read share one immediate
+    /// transaction, making concurrent same-ID acceptance deterministic.
+    pub fn accept_or_existing(
+        &mut self,
+        command: &AcceptedCommand,
+    ) -> Result<AcceptOutcome, StorageError> {
+        let transaction = self
             .connection
-            .query_row(
-                "SELECT
-                    request_id,
-                    command_id,
-                    canonical_command,
-                    original_result,
-                    accepted_utc_millis
-                 FROM accepted_commands
-                 WHERE request_id = ?1",
-                [request_id.as_str()],
-                |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, Vec<u8>>(2)?,
-                        row.get::<_, Vec<u8>>(3)?,
-                        row.get::<_, i64>(4)?,
-                    ))
-                },
-            )
-            .optional()?;
-        row.map(
-            |(request_id, command_id, canonical_command, original_result, accepted_utc_millis)| {
-                Ok(AcceptedCommand {
-                    request_id: request_id.parse()?,
-                    command_id: command_id.parse()?,
-                    canonical_command,
-                    original_result,
-                    accepted_utc_millis,
-                })
-            },
-        )
-        .transpose()
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let inserted = transaction.execute(
+            "INSERT OR IGNORE INTO accepted_commands (
+                request_id,
+                command_id,
+                canonical_command,
+                original_result,
+                accepted_utc_millis
+             ) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![
+                command.request_id.as_str(),
+                command.command_id.as_str(),
+                command.canonical_command,
+                command.original_result,
+                command.accepted_utc_millis
+            ],
+        )?;
+        let outcome = if inserted == 1 {
+            AcceptOutcome::Inserted(command.clone())
+        } else {
+            let existing = read_accepted_command(&transaction, &command.request_id)?
+                .ok_or(StorageError::IdentityCollision)?;
+            AcceptOutcome::Existing(existing)
+        };
+        transaction.commit()?;
+        Ok(outcome)
     }
 
     /// Returns the migrated schema version.
@@ -168,6 +183,46 @@ impl Store {
             .connection
             .pragma_query_value(None, "user_version", |row| row.get(0))?)
     }
+}
+
+fn read_accepted_command(
+    connection: &Connection,
+    request_id: &RequestId,
+) -> Result<Option<AcceptedCommand>, StorageError> {
+    let row = connection
+        .query_row(
+            "SELECT
+                    request_id,
+                    command_id,
+                    canonical_command,
+                    original_result,
+                    accepted_utc_millis
+                 FROM accepted_commands
+                 WHERE request_id = ?1",
+            [request_id.as_str()],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Vec<u8>>(2)?,
+                    row.get::<_, Vec<u8>>(3)?,
+                    row.get::<_, i64>(4)?,
+                ))
+            },
+        )
+        .optional()?;
+    row.map(
+        |(request_id, command_id, canonical_command, original_result, accepted_utc_millis)| {
+            Ok(AcceptedCommand {
+                request_id: request_id.parse()?,
+                command_id: command_id.parse()?,
+                canonical_command,
+                original_result,
+                accepted_utc_millis,
+            })
+        },
+    )
+    .transpose()
 }
 
 #[cfg(test)]

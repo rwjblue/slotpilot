@@ -14,6 +14,11 @@ The schema represents:
 - generic pending/completed outbox work with unique idempotency keys;
 - external receipts linked to outbox work without performing delivery.
 
+Accepted requests use an immediate transaction with insert-or-load semantics,
+so concurrent same-ID calls observe one winner. Same-command retries recover
+the winner's exact serialized response; conflicting canonical bytes are mapped
+by the daemon composition boundary to `request_id_conflict`.
+
 Session-context snapshots cannot be updated or deleted. Foreign keys, JSON
 validity, identity uniqueness, non-negative UTC times, revision bounds, and
 closed state/profile-kind values are database constraints rather than

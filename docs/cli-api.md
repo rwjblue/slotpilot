@@ -110,12 +110,24 @@ JSON objects may gain additive fields, which version-1 readers ignore. Unknown
 command, result, or error-detail variants are incompatible rather than guessed
 from strings.
 
+Read-only commands are evaluated afresh and are not recorded in the request
+journal. Phase 0 includes one bounded `noop_mutation` solely to exercise
+durable retry behavior; it persists no station state and performs no external
+side effect.
+
+Typed command serialization produces canonical JSON bytes. Every semantic
+field participates, and the no-op marker is limited to 128 bytes.
+
 Request-ID behavior:
 
-- same ID and semantically identical payload: return the original accepted result;
-- same ID and different payload: reject with `request_id_conflict`;
-- new ID: evaluate normally;
-- a client timeout does not imply the command failed; the client retries with the same ID.
+- a new mutating request ID is accepted transactionally with its exact result;
+- the same ID and canonical command returns the stored original result, even
+  after restart;
+- the same ID and different command returns `request_id_conflict` with
+  `retryable: false`;
+- a transaction failure leaves no partial acceptance;
+- after an uncertain timeout, retry the identical command with the identical
+  ID rather than generating a new operation.
 
 ## Results and errors
 

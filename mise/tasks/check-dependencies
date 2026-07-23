@@ -63,5 +63,7 @@ assert_workspace_dependencies "slotpilot-storage" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-testkit" "slotpilot-domain
 slotpilot-operations"
 assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
-assert_workspace_dependencies "slotpilotd" "slotpilot-api"
+assert_workspace_dependencies "slotpilotd" "slotpilot-api
+slotpilot-domain
+slotpilot-storage"
 assert_workspace_dependencies "slotpilot" "slotpilot-api"

@@ -20,6 +20,9 @@ fn command_fixtures_are_stable() {
     assert_fixture_round_trip::<CommandEnvelope>(include_str!(
         "fixtures/get-snapshot-command.json"
     ));
+    assert_fixture_round_trip::<CommandEnvelope>(include_str!(
+        "fixtures/noop-mutation-command.json"
+    ));
 }
 
 #[test]
@@ -30,5 +33,11 @@ fn response_fixtures_are_stable() {
     assert_fixture_round_trip::<ResponseEnvelope>(include_str!("fixtures/snapshot-response.json"));
     assert_fixture_round_trip::<ResponseEnvelope>(include_str!(
         "fixtures/incompatible-version-error.json"
+    ));
+    assert_fixture_round_trip::<ResponseEnvelope>(include_str!(
+        "fixtures/noop-mutation-response.json"
+    ));
+    assert_fixture_round_trip::<ResponseEnvelope>(include_str!(
+        "fixtures/request-id-conflict-error.json"
     ));
 }

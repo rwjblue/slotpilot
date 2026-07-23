@@ -117,6 +117,17 @@ define_id!(
     "Identity of a proposed or recorded transmission."
 );
 
+impl CommandId {
+    /// Derives the Phase 0 accepted-command identity from its request.
+    ///
+    /// This preserves one stable command identity per accepted request without
+    /// introducing a random or clock dependency into retry handling.
+    #[must_use]
+    pub fn for_request(request_id: &RequestId) -> Self {
+        Self(format!("cmd_{}", &request_id.0["req_".len()..]))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

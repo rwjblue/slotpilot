@@ -38,6 +38,57 @@ pub enum Command {
     },
     /// Obtain the deterministic no-op station snapshot.
     GetSnapshot,
+    /// Persist a bounded marker solely to exercise durable retry semantics.
+    ///
+    /// This command has no station, hardware, logging, or external side effect.
+    NoopMutation {
+        /// Opaque marker retained only in the original result.
+        marker: String,
+    },
+}
+
+/// Whether a command is evaluated afresh or journaled for idempotent replay.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandClass {
+    /// Observational commands are not retained in the request journal.
+    ReadOnly,
+    /// Mutating commands require durable same-ID replay/conflict handling.
+    Mutating,
+}
+
+/// Failure producing a bounded canonical command identity.
+#[derive(Debug, Error)]
+pub enum CanonicalizationError {
+    /// A no-op marker exceeded the bounded wire contract.
+    #[error("no-op marker must not exceed 128 bytes")]
+    MarkerTooLong,
+    /// Stable JSON serialization unexpectedly failed.
+    #[error("failed to serialize canonical command: {0}")]
+    Serialization(#[from] serde_json::Error),
+}
+
+impl Command {
+    /// Returns the retry classification for this command.
+    #[must_use]
+    pub const fn class(&self) -> CommandClass {
+        match self {
+            Self::GetCapabilities { .. } | Self::GetSnapshot => CommandClass::ReadOnly,
+            Self::NoopMutation { .. } => CommandClass::Mutating,
+        }
+    }
+
+    /// Returns a deterministic byte identity for semantic command comparison.
+    ///
+    /// Typed serialization preserves every field and variant. Object key order
+    /// cannot affect identity because callers never provide an untyped object.
+    pub fn canonical_bytes(&self) -> Result<Vec<u8>, CanonicalizationError> {
+        if let Self::NoopMutation { marker } = self
+            && marker.len() > 128
+        {
+            return Err(CanonicalizationError::MarkerTooLong);
+        }
+        Ok(serde_json::to_vec(self)?)
+    }
 }
 
 /// A response correlated to the original request.
@@ -70,6 +121,11 @@ pub enum ResultBody {
     Capabilities(Capabilities),
     /// Current bounded station snapshot.
     Snapshot(StationSnapshot),
+    /// Durable acceptance of the side-effect-free Phase 0 mutation.
+    NoopMutationAccepted {
+        /// Original marker, proving exact result replay.
+        marker: String,
+    },
 }
 
 /// Negotiated capabilities of the Phase 0 service.
@@ -145,6 +201,10 @@ pub enum ErrorCode {
     IncompatibleApiVersion,
     /// A negotiation request exceeded its documented bound.
     NegotiationTooLarge,
+    /// A request identity was reused for a different canonical mutation.
+    RequestIdConflict,
+    /// A mutating command bypassed the required durable processor.
+    RequestJournalRequired,
 }
 
 impl ErrorCode {
@@ -154,6 +214,8 @@ impl ErrorCode {
         match self {
             Self::IncompatibleApiVersion => "incompatible_api_version",
             Self::NegotiationTooLarge => "negotiation_too_large",
+            Self::RequestIdConflict => "request_id_conflict",
+            Self::RequestJournalRequired => "request_journal_required",
         }
     }
 }
@@ -176,6 +238,10 @@ pub enum ErrorDetails {
         /// Entries supplied by the client.
         received_versions: usize,
     },
+    /// Request reuse did not match the originally accepted command.
+    RequestConflict,
+    /// The in-process read-only seam received a mutating command.
+    JournalRequired,
 }
 
 /// Failure constructing the in-process no-op service seam.
@@ -258,6 +324,12 @@ impl NoopService {
                     transmit_authority: Availability::Unavailable,
                 }))
             }
+            Command::NoopMutation { .. } => ResponseOutcome::Error(ApiError {
+                code: ErrorCode::RequestJournalRequired,
+                message: "mutating commands require the durable request journal".into(),
+                retryable: false,
+                details: ErrorDetails::JournalRequired,
+            }),
         };
 
         ResponseEnvelope {
@@ -383,5 +455,32 @@ mod tests {
         }"#;
         let parsed: CommandEnvelope = serde_json::from_str(fixture).unwrap();
         assert_eq!(parsed.command, Command::GetSnapshot);
+    }
+
+    #[test]
+    fn command_classification_and_canonicalization_are_explicit() {
+        assert_eq!(Command::GetSnapshot.class(), CommandClass::ReadOnly);
+        let alpha = Command::NoopMutation {
+            marker: "alpha".into(),
+        };
+        let beta = Command::NoopMutation {
+            marker: "beta".into(),
+        };
+        assert_eq!(alpha.class(), CommandClass::Mutating);
+        assert_ne!(
+            alpha.canonical_bytes().unwrap(),
+            beta.canonical_bytes().unwrap()
+        );
+        assert_eq!(
+            alpha.canonical_bytes().unwrap(),
+            alpha.canonical_bytes().unwrap()
+        );
+        assert!(matches!(
+            Command::NoopMutation {
+                marker: "x".repeat(129)
+            }
+            .canonical_bytes(),
+            Err(CanonicalizationError::MarkerTooLong)
+        ));
     }
 }

@@ -30,6 +30,11 @@ pub fn render_table(response: &ResponseEnvelope) -> String {
              transmit_authority   unavailable",
             snapshot.service_instance_id
         ),
+        ResponseOutcome::Success(ResultBody::NoopMutationAccepted { marker }) => format!(
+            "FIELD                VALUE\n\
+             result               noop_mutation_accepted\n\
+             marker               {marker}"
+        ),
         ResponseOutcome::Error(error) => format!(
             "FIELD                VALUE\n\
              code                 {}\n\
