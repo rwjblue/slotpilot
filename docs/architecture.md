@@ -74,6 +74,11 @@ slotpilot  ─┘
 slotpilotd ─┐
 slotpilot  ─┴──> ipc ──> api
 
+slotpilotd ─────> audio
+slotpilotd ─────> operations
+slotpilotd ─────> protocol
+slotpilotd ─────> storage
+
 protocol ─────> domain
 audio
 operations ───> audio
@@ -90,8 +95,9 @@ storage ───────────────────> domain
 `protocol`, and `domain`. Storage may depend on owned `audio`, `protocol`, and
 `domain` values solely to validate and reconstruct durable records; it cannot
 import private device/FFT/protocol dependencies or operations/API types.
-`api` may depend on `domain`; the daemon and CLI composition shells may depend
-on `api`. The executable `mise run
+`api` may depend on `domain`; the daemon composition shell may depend on
+`audio`, `operations`, `protocol`, and `storage`, while daemon and CLI may both
+depend on `api` and `ipc`. The executable `mise run
 check-dependencies` task verifies this allow-list from Cargo's resolved graph
 and is part of `mise run ci`. Later focused issues may extend the graph only in
 the direction described below.
@@ -250,6 +256,14 @@ Generation, timeline, or clock invalidation clears overlap/history and marks
 the first later row. Detailed behavior is in
 [`spectrum-waterfall.md`](spectrum-waterfall.md), and the dependency review is
 [`dependencies/rustfft-6.4.1.md`](dependencies/rustfft-6.4.1.md).
+
+`slotpilotd` composes the exact input owner, worker-side timeline, receive-clock
+gate, offline FT8 decoder, and schema-v2 receive transaction behind one typed
+internal lifecycle seam. The worker queue holds at most four batches and one
+poll processes at most one, so decoder or SQLite latency cannot move work into
+the callback. Faults stop input and remain inhibited until an explicit
+stop/start with a fresh stream generation; daemon restart is inactive. The
+full composition contract is [`live-receive.md`](live-receive.md).
 
 ## Time boundary
 

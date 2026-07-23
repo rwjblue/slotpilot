@@ -76,8 +76,11 @@ slotpilot-operations
 slotpilot-protocol"
 assert_workspace_dependencies "slotpilot-api" "slotpilot-domain"
 assert_workspace_dependencies "slotpilotd" "slotpilot-api
+slotpilot-audio
 slotpilot-domain
 slotpilot-ipc
+slotpilot-operations
+slotpilot-protocol
 slotpilot-storage"
 assert_workspace_dependencies "slotpilot" "slotpilot-api
 slotpilot-domain
@@ -327,6 +330,13 @@ if grep -En \
   'cpal::|crossbeam_queue::|mfsk_core::|slotpilot_protocol|rusqlite::|std::thread|sleep\(|build_(input|output)_stream|default_(input|output)_device' \
   crates/audio/src/spectrum.rs; then
   echo "receive spectrum gained callback, device, protocol, persistence, sleeping, or rendering behavior" >&2
+  exit 1
+fi
+
+if grep -En \
+  'cpal::|crossbeam_queue::|mfsk_core::|rustfft::|rusqlite::|std::thread|sleep\(|build_output_stream|default_(input|output)_device|TransmitSupervisor|RigPort|ptt|transmit_authority' \
+  apps/daemon/src/receive.rs; then
+  echo "daemon receive coordinator gained a private dependency, thread/sleep, fallback device, output, rig, PTT, or authority path" >&2
   exit 1
 fi
 

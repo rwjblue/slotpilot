@@ -169,6 +169,15 @@ process, stream, and configuration changes. Only a complete 180,000-sample
 window is valid. Tests supply the observation monotonic time directly and
 never sleep or read a physical clock.
 
+Daemon live-receive tests use injected input, decoder, and receive-store
+boundaries. They replay a complete canonical window through clock gating and
+verify all five protocol classifications survive atomic persistence. Focused
+fault tests cover failed start, device loss, overflow, discontinuity, stale
+clock, timeline rejection, decoder failure, storage failure, shutdown,
+cancellation, inactive restart, fresh stream generations, idempotent durable
+identity, and the fixed four-batch/one-worker bound. They never enumerate or
+open a physical device.
+
 The receive spectrum model uses generated canonical silence, aligned tones,
 and multiple tones. Tests verify integer bin frequencies, Hann coherent-gain
 scaling, the -120 dBFS floor, exact row time/slot identity, overlap cadence,

@@ -131,6 +131,12 @@ Exit criteria:
 
 WSPR live receive is deferred to Phase 8.
 
+Phase 2 software implementation is in progress. The daemon now has an internal,
+receive-only composition of exact input ownership, bounded worker processing,
+clock-gated live FT8 decode, typed lifecycle and fault handling, and schema-v2
+persistence. Public receive API/CLI behavior and the human-required physical
+input validation remain separate work.
+
 Phase 2 entry was reviewed at the Phase 1 closeout. Its required boundaries are
 already explicit: daemon-only hardware ownership, portable stable input-device
 identity, allocation-free/nonblocking callbacks, bounded queues, deterministic

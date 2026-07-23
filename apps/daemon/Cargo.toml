@@ -10,9 +10,13 @@ version.workspace = true
 [dependencies]
 anyhow.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 slotpilot-api.workspace = true
+slotpilot-audio.workspace = true
 slotpilot-domain.workspace = true
 slotpilot-ipc.workspace = true
+slotpilot-operations.workspace = true
+slotpilot-protocol.workspace = true
 slotpilot-storage.workspace = true
 thiserror.workspace = true
 

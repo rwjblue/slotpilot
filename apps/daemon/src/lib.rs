@@ -17,6 +17,15 @@ use slotpilot_ipc::{CancellationToken, IpcError, LocalServer};
 use slotpilot_storage::{AcceptOutcome, AcceptedCommand, StorageError, Store};
 use thiserror::Error;
 
+mod receive;
+
+pub use receive::{
+    DaemonReceiveInput, DaemonReceiveStore, LiveReceiveCoordinator, LiveReceiveCoordinatorConfig,
+    ReceiveCoordinatorError, ReceiveInhibition, ReceiveLifecycleEvent, ReceiveLifecycleState,
+    ReceivePollEvent, ReceiveSelection, ReceiveStopReason, SystemReceiveInput,
+    WORKER_BATCH_CAPACITY,
+};
+
 /// Failure before a bounded API response could be durably produced.
 #[derive(Debug, Error)]
 pub enum ProcessorError {

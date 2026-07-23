@@ -987,9 +987,13 @@ version = "0.1.0-dev.0"
 dependencies = [
  "anyhow",
  "serde_json",
+ "sha2",
  "slotpilot-api",
+ "slotpilot-audio",
  "slotpilot-domain",
  "slotpilot-ipc",
+ "slotpilot-operations",
+ "slotpilot-protocol",
  "slotpilot-storage",
  "thiserror 2.0.19",
 ]
