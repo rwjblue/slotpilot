@@ -1,0 +1,16 @@
+[package]
+name = "slotpilot-storage"
+description = "Versioned SQLite operational storage for SlotPilot"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+repository.workspace = true
+version.workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+slotpilot-domain.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

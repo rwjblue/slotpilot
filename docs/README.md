@@ -17,6 +17,7 @@ This directory is the durable design record for the project.
 - [`cli-api.md`](cli-api.md): command-line and versioned command/event contract.
 - [`safety.md`](safety.md): attended-operation and transmit-safety invariants.
 - [`testing.md`](testing.md): deterministic, fault-injection, cross-platform, and hardware test strategy.
+- [`storage.md`](storage.md): Phase 0 SQLite schema, migration, and deferred-field contract.
 - [`roadmap.md`](roadmap.md): implementation phases and exit criteria.
 - [`work-tracking.md`](work-tracking.md): issue structure, labels, and dependency practices.
 - [`backlog/phase-0.md`](backlog/phase-0.md): issue-ready initial work.
