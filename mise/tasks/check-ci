@@ -37,8 +37,11 @@ fi
 
 for setting in \
   "continue-on-error: true" \
+  "add-rust-environment-hash-key: false" \
   "cache-bin: false" \
   "cache-on-failure: false" \
+  "key: slotpilot-" \
+  "hashFiles(" \
   "save-if:" \
   "refs/heads/main"; do
   if ! grep -Fq "${setting}" "${workflow}"; then
