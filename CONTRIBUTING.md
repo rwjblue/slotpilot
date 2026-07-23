@@ -1,8 +1,9 @@
 # Contributing to SlotPilot
 
-SlotPilot is currently in its design and bootstrap phase. Contributions should
-be tied to a focused GitHub issue. The Phase 0 backlog seeded the initial issue
-set but is not a second execution tracker.
+SlotPilot has completed its Phase 0 development-only foundation. Phase 1 begins
+the FT8-only critical path described in `docs/roadmap.md`. Contributions should
+be tied to a focused GitHub issue. The historical Phase 0 backlog seeded the
+initial issue set but is not a second execution tracker.
 
 ## Before starting
 

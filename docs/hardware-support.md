@@ -2,6 +2,19 @@
 
 Initial hardware support is deliberately narrow so safety and verification behavior can be tested deeply.
 
+## Validation sequencing
+
+The K4, FT-891/DigiRig, and FTDX10 remain the initial validation targets. The
+Phase 3 tracker designates one primary radio/audio configuration according to
+physical availability, repeatability, and safe test equipment. That
+configuration alone gates the Phase 5 contact-capable alpha and Phase 6 FT8
+MVP.
+
+The remaining initial targets advance through the same test ladder in Phase 7
+and must be complete before the packaged product release. A primary designation
+is a sequencing choice, not a claim that the other targets are unsupported or
+architecturally deferred.
+
 ## Common model
 
 Every rig profile must distinguish:

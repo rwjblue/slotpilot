@@ -137,6 +137,10 @@ that can be reviewed and tested independently.
 - Interfaces and fakes precede physical adapters.
 - Receive paths precede transmit paths.
 - Manual bounded transmit precedes automatic sequencing.
+- The contact-capable alpha validates one designated primary station
+  configuration before remaining initial hardware targets expand support.
+- WSPR implementation follows the FT8 MVP and reuses the proven protocol,
+  audio, scheduling, transmit-supervisor, storage, and client boundaries.
 - Persistence transactions precede queue advancement or external upload retries.
 - CLI/API behavior is designed before a desktop-only workflow.
 - Before beginning an issue, confirm every `Depends on` issue has landed on the
@@ -187,10 +191,27 @@ but every revision must remain buildable, testable, and independently
 reviewable. A tracking issue coordinates a stack; it does not replace focused
 pull-request scope.
 
-## First milestone
+## Completed first milestone
 
 The first milestone is
 [**Phase 0 — Workspace and contracts**](https://github.com/rwjblue/slotpilot/milestone/1),
 coordinated by
 [tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). The initial
-focused contracts were seeded from [the Phase 0 backlog](backlog/phase-0.md).
+focused contracts were seeded from [the Phase 0 backlog](backlog/phase-0.md)
+and are complete.
+
+## Phase tracker expectations
+
+Before seeding focused issues, each new phase tracker must restate:
+
+- the roadmap delivery checkpoint it advances;
+- behavior explicitly deferred from the critical path;
+- the designated primary hardware configuration when physical validation
+  begins;
+- human-required dummy-load, hardware, and on-air evidence;
+- dependencies whose work has landed on the remote default branch;
+- exit evidence needed before the next phase becomes executable.
+
+Phase 1 is the offline FT8 protocol harness. Its tracker must not absorb WSPR
+fixtures or implementation merely because the eventual protocol adapter serves
+both modes.

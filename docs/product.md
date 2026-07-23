@@ -123,6 +123,10 @@ Operating state is composed from versioned operator, station, activation, rig, a
 
 ## User interfaces
 
-The desktop application provides a waterfall, decode activity, caller queue, current QSO transcript, run controls, profile management, logging, WSPR status, and diagnostics.
+Desktop delivery is incremental. The FT8 MVP includes a minimum operator
+console for station health, decode activity, caller queue, current QSO
+transcript, arm/pause/stop controls, and transmit inhibition reasons. The
+packaged product expands that client with the full waterfall, profile
+management, logging, WSPR status, diagnostics, backup, and recovery workflows.
 
 The CLI provides equivalent commands and a JSON/JSONL mode suitable for scripts and AntennaBench. The desktop application must not bypass the service API.

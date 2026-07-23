@@ -74,15 +74,18 @@ When explicitly handed a GitHub issue:
 
 ## Current repository state
 
-The repository has a minimal compile-only Rust workspace containing domain,
-API, daemon, and CLI boundary shells. There is deliberately no station,
-protocol, persistence, transport, or user-interface behavior yet. Do not
-create broad speculative implementations in an orientation task.
+Phase 0 is complete. The repository has a development-only no-op daemon/CLI
+handshake, versioned API contracts, local IPC, deterministic time and hardware
+test seams, initial SQLite durability, and the complete repository gate. There
+is deliberately no live station, FT8/WSPR protocol, audio-device, rig-control,
+logging, transmit, or desktop behavior yet. Do not create broad speculative
+implementations in an orientation task.
 
 An implementation pull request should be narrow, reviewable, and tied to one
-Phase 0 task. It should not open an audio device, connect to a physical rig,
+focused issue. It should not open an audio device, connect to a physical rig,
 key PTT, transmit RF, or introduce a desktop framework unless the assigned
-issue explicitly calls for it.
+issue explicitly calls for that boundary and its prerequisite safety work has
+landed.
 
 ## Non-negotiable boundaries
 
@@ -179,10 +182,13 @@ For any change related to transmit scheduling, PTT, rig mutation, audio output, 
 
 ## Assignment source
 
-Use the focused issues linked from
-[Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1). A
-downstream issue may begin only after its dependencies have landed, its
-contract has been revalidated, and the user explicitly hands it off.
+Phase 0's completed implementation record is
+[tracker #1](https://github.com/rwjblue/slotpilot/issues/1). New implementation
+must use focused issues linked from the active phase tracker. Phase 1 is the
+offline FT8 protocol harness defined in `docs/roadmap.md`; it is not authorized
+until its tracker and focused issues exist. A downstream issue may begin only
+after its dependencies have landed, its contract has been revalidated, and the
+user explicitly hands it off.
 
 ## Definition of done
 

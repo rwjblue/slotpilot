@@ -44,6 +44,9 @@ Requirement identifiers are stable references for issues, tests, and design revi
 - **F-304** Configured audio devices shall use stable platform identifiers when available and shall not silently fall back to system defaults.
 - **F-305** Rig control shall begin with a persistent `rigctld`/Hamlib adapter and capability probing.
 - **F-306** Initial validation targets shall be Elecraft K4, Yaesu FT-891 with DigiRig, and Yaesu FTDX10.
+- **F-307** The FT8 MVP shall fully validate at least one designated initial
+  radio/audio configuration; completing validation of the other initial
+  targets shall not gate the first FT8 MVP.
 
 ### Logging and integrations
 
@@ -83,16 +86,50 @@ Requirement identifiers are stable references for issues, tests, and design revi
 - **N-009** The application shall retain structured diagnostics for audio overruns/underruns, clock health, rig state, state transitions, and integration attempts.
 - **N-010** External side effects shall be recoverable without duplicating committed QSOs or spot records.
 
-## Initial release acceptance themes
+## Delivery acceptance themes
 
-The first on-air-capable release is not ready until it demonstrates:
+### Contact-capable alpha
 
-- reproducible reference decode/encode results;
+The Phase 5 contact-capable alpha is not complete until it demonstrates:
+
+- reproducible reference FT8 decode/encode results;
 - safe failure under audio loss, rig loss, clock jump, panic, and restart;
 - correct special-call message planning;
 - correct UTC-date behavior at midnight;
 - distinct station and operator ADIF output;
 - crash-safe QSO and outbox handling;
+- immediate operator pause, disarm, and emergency stop through the API and CLI;
+- one bounded human-observed QSO with the designated primary configuration
+  after dummy-load and failure-path validation passes.
+
+This is an engineering milestone, not a packaged or generally supported
+release.
+
+### FT8 MVP
+
+The Phase 6 FT8 MVP is not complete until the contact-capable alpha criteria
+pass and it demonstrates:
+
 - explainable duplicate and caller-selection behavior;
-- no accidental WSPR-to-QSO log crossover;
-- immediate operator override from desktop and CLI.
+- deterministic queue advancement after durable QSO completion;
+- bounded one-and-stop, drain-and-stop, drain-then-CQ, and
+  continuous-attended operation;
+- immediate operator override through the API, CLI, and minimum desktop
+  operator console;
+- one human-observed bounded CQ run with the designated primary configuration.
+
+The FT8 MVP remains a development release until Phase 9.
+
+### Packaged product release
+
+The first packaged product release is not ready until:
+
+- all FT8 MVP criteria remain satisfied;
+- WSPR receive, transmit, storage, and upload failure behavior pass their
+  Phase 8 gates;
+- WSPR records cannot cross into the FT8 QSO log;
+- all three initial hardware targets have explicit validation evidence;
+- supported-platform packaging, permission, recovery, backup, migration, and
+  safety smoke tests pass;
+- immediate operator override remains available from the packaged desktop and
+  CLI clients.

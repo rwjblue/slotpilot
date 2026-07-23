@@ -43,11 +43,13 @@ Maintain reviewed fixtures for:
 - exchange variants and endings;
 - special/compound calls including `W1AW/1`;
 - unresolved hashes and unsupported message types;
-- WSPR message forms;
 - noisy and overlapping recordings;
 - encode/decode round trips.
 
 Reference comparisons should record tool/version provenance without importing dependency-specific types into expected public results.
+FT8 fixtures are established on the Phase 1 critical path. Equivalent WSPR
+fixtures are added in Phase 8 before any WSPR live receive or transmit behavior
+is accepted.
 
 ### Fake rig and audio
 
@@ -126,9 +128,9 @@ Use the ladder in `hardware-support.md`. A hardware test record should include:
 - operator and date;
 - failures and cleanup verification.
 
-## Release safety suite
+## Contact-capable alpha safety suite
 
-Before an on-air-capable release:
+Before the Phase 5 contact-capable alpha:
 
 - emergency stop from every operating state;
 - output-device loss during TX;
@@ -137,7 +139,36 @@ Before an on-air-capable release:
 - wall-clock jump around a slot;
 - unexpected mode/frequency movement;
 - expired authority between plan and deadline;
-- FT8/WSPR schedule collision;
 - incomplete database transaction and restart;
 - special-call plan validation;
 - UTC-midnight logging and duplicate behavior.
+
+Dummy-load and loopback evidence is required before one bounded,
+human-observed FT8 QSO with the designated primary station configuration.
+That observation is `human-required` and cannot be replaced by generated or
+replay evidence.
+
+## FT8 MVP safety suite
+
+Before the Phase 6 FT8 MVP:
+
+- every contact-capable alpha gate remains satisfied;
+- stop, pause, disarm, and emergency stop are exercised from every queue and
+  QSO state through the API and CLI;
+- the minimum desktop console demonstrates immediate stop and current
+  inhibition state;
+- authority expiry, retry exhaustion, duplicate policy, durable completion,
+  and queue advancement are replayed deterministically;
+- one bounded attended CQ run is recorded with the designated primary
+  configuration.
+
+## Packaged release safety suite
+
+Before the Phase 9 packaged product release:
+
+- FT8/WSPR schedule collision;
+- WSPR storage/upload restart behavior and log separation;
+- every claimed initial hardware target completes the hardware test ladder;
+- platform permission, device recovery, packaging, migration, backup, and
+  rollback smoke tests;
+- all contact-capable alpha and FT8 MVP gates remain satisfied.

@@ -61,14 +61,16 @@ A contributor or coding agent should read these files in order:
 7. [`docs/roadmap.md`](docs/roadmap.md)
 8. [`docs/backlog/phase-0.md`](docs/backlog/phase-0.md)
 
-The repository is intentionally behavior-free beyond local no-op API,
-persistence, and test seams. An assigned issue should create only the narrow
-slice it owns and preserve the documented boundaries.
+The repository is intentionally free of live station behavior beyond local
+no-op API, persistence, and test seams. An assigned issue should create only
+the narrow slice it owns and preserve the documented boundaries.
 
-Phase 0 implementation is coordinated through
-[tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). GitHub issues
-are the durable execution contracts; roadmap and backlog documents describe
-sequencing and stable acceptance themes.
+Phase 0 is complete; its durable implementation record is
+[tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). Phase 1
+begins the FT8-only critical path to the contact-capable alpha and FT8 MVP
+defined in [`docs/roadmap.md`](docs/roadmap.md). WSPR remains planned after the
+FT8 MVP. GitHub issues are the durable execution contracts; roadmap and backlog
+documents describe sequencing and stable acceptance themes.
 
 ## Validation
 
