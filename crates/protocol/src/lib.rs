@@ -1,18 +1,20 @@
 //! SlotPilot-owned offline protocol contracts.
 //!
-//! Phase 1 begins with FT8-only value types and traits. This crate contains no
-//! DSP implementation, file parser, audio-device access, QSO policy, station
-//! command, persistence, scheduling, PTT, or transmit authority.
+//! Phase 1 contains FT8-only owned values plus bounded offline message, PCM,
+//! RIFF/WAVE, synthesis, and recording-decode adapters. It contains no
+//! audio-device access, QSO policy, station command, persistence, scheduling,
+//! PTT, or transmit authority.
 
 mod offline_adapter;
+mod wave_file;
 
 use std::cmp::Ordering;
 
 use slotpilot_domain::{AudioFrequency, FullCallsign};
 use thiserror::Error;
 
-pub use offline_adapter::OfflineFt8Codec;
-pub use offline_adapter::OfflineFt8Synthesizer;
+pub use offline_adapter::{OfflineFt8Codec, OfflineFt8Decoder, OfflineFt8Synthesizer};
+pub use wave_file::{decode_pcm_wave, encode_pcm_wave};
 
 /// Number of information bits in one packed FT8 message.
 pub const FT8_MESSAGE_BITS: usize = 77;
@@ -378,6 +380,121 @@ impl Ft8Decode {
     }
 }
 
+/// Bounded offline FT8 search depth without dependency-specific terminology.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Ft8DecodeDepth {
+    /// Use the normal deterministic message search.
+    Normal,
+    /// Include the reviewed deeper offline fallback.
+    Deep,
+}
+
+/// Explicit bounded configuration for one offline FT8 PCM window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ft8DecodeConfig {
+    minimum_audio_frequency: AudioFrequency,
+    maximum_audio_frequency: AudioFrequency,
+    sync_threshold_milli: u16,
+    depth: Ft8DecodeDepth,
+    maximum_candidates: u16,
+}
+
+impl Ft8DecodeConfig {
+    /// Constructs a checked offline search configuration.
+    pub fn new(
+        minimum_audio_frequency: AudioFrequency,
+        maximum_audio_frequency: AudioFrequency,
+        sync_threshold_milli: u16,
+        depth: Ft8DecodeDepth,
+        maximum_candidates: u16,
+    ) -> Result<Self, Ft8DecodeError> {
+        if minimum_audio_frequency > maximum_audio_frequency || maximum_audio_frequency.hz() > 5_956
+        {
+            return Err(Ft8DecodeError::InvalidConfiguration {
+                detail: "FT8 search frequencies must be ordered below the canonical Nyquist bound"
+                    .to_owned(),
+            });
+        }
+        if !(1..=5_000).contains(&sync_threshold_milli) {
+            return Err(Ft8DecodeError::InvalidConfiguration {
+                detail: "FT8 sync threshold must be between 1 and 5,000 milli-units".to_owned(),
+            });
+        }
+        if !(1..=1_000).contains(&maximum_candidates) {
+            return Err(Ft8DecodeError::InvalidConfiguration {
+                detail: "FT8 maximum candidates must be between 1 and 1,000".to_owned(),
+            });
+        }
+        Ok(Self {
+            minimum_audio_frequency,
+            maximum_audio_frequency,
+            sync_threshold_milli,
+            depth,
+            maximum_candidates,
+        })
+    }
+
+    /// Returns the inclusive lower search frequency.
+    #[must_use]
+    pub const fn minimum_audio_frequency(self) -> AudioFrequency {
+        self.minimum_audio_frequency
+    }
+
+    /// Returns the inclusive upper search frequency.
+    #[must_use]
+    pub const fn maximum_audio_frequency(self) -> AudioFrequency {
+        self.maximum_audio_frequency
+    }
+
+    /// Returns the integer milli-unit Costas sync threshold.
+    #[must_use]
+    pub const fn sync_threshold_milli(self) -> u16 {
+        self.sync_threshold_milli
+    }
+
+    /// Returns the owned search depth.
+    #[must_use]
+    pub const fn depth(self) -> Ft8DecodeDepth {
+        self.depth
+    }
+
+    /// Returns the maximum candidates evaluated.
+    #[must_use]
+    pub const fn maximum_candidates(self) -> u16 {
+        self.maximum_candidates
+    }
+}
+
+/// Typed offline FT8 PCM decode failure.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum Ft8DecodeError {
+    /// Search bounds or integer configuration units were invalid.
+    #[error("invalid offline FT8 decode configuration: {detail}")]
+    InvalidConfiguration {
+        /// Stable owned explanation.
+        detail: String,
+    },
+    /// PCM was not one complete canonical mono FT8 slot.
+    #[error("offline FT8 decode requires 180,000 mono samples at 12,000 Hz")]
+    UnsupportedPcmWindow,
+    /// Message classification failed at the private adapter boundary.
+    #[error(transparent)]
+    Codec(#[from] Ft8CodecError),
+    /// Private result metadata was non-finite or outside owned integer bounds.
+    #[error("offline FT8 decoder returned invalid metadata")]
+    InvalidResultMetadata,
+}
+
+/// Owned offline FT8 PCM decoder boundary.
+pub trait Ft8OfflineDecoder {
+    /// Decodes a bounded in-memory window without opening an audio device.
+    fn decode(
+        &self,
+        pcm: &PcmBuffer,
+        config: Ft8DecodeConfig,
+    ) -> Result<Vec<Ft8Decode>, Ft8DecodeError>;
+}
+
 /// SlotPilot-owned packed FT8 information bits.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PackedFt8Bits([bool; FT8_MESSAGE_BITS]);
@@ -672,58 +789,27 @@ pub enum Ft8WaveformError {
     Pcm(#[from] PcmError),
 }
 
-/// Typed offline RIFF/WAVE export failure.
+/// Typed offline RIFF/WAVE parsing or export failure.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum PcmWaveError {
     /// The encoded RIFF or PCM size exceeded its 32-bit field.
     #[error("PCM buffer is too large for a RIFF/WAVE file")]
     FileTooLarge,
-}
-
-/// Encodes a checked PCM buffer as an in-memory RIFF/WAVE file.
-///
-/// This helper performs no file, device, playback, or permission operation.
-pub fn encode_pcm_wave(buffer: &PcmBuffer) -> Result<Vec<u8>, PcmWaveError> {
-    let sample_bytes = buffer
-        .samples()
-        .len()
-        .checked_mul(size_of::<i16>())
-        .and_then(|length| u32::try_from(length).ok())
-        .ok_or(PcmWaveError::FileTooLarge)?;
-    let riff_size = 36_u32
-        .checked_add(sample_bytes)
-        .ok_or(PcmWaveError::FileTooLarge)?;
-    let format = buffer.format();
-    let block_align = format
-        .channels()
-        .checked_mul(2)
-        .ok_or(PcmWaveError::FileTooLarge)?;
-    let byte_rate = format
-        .sample_rate_hz()
-        .checked_mul(u32::from(block_align))
-        .ok_or(PcmWaveError::FileTooLarge)?;
-    let capacity = usize::try_from(riff_size)
-        .ok()
-        .and_then(|size| size.checked_add(8))
-        .ok_or(PcmWaveError::FileTooLarge)?;
-
-    let mut bytes = Vec::with_capacity(capacity);
-    bytes.extend_from_slice(b"RIFF");
-    bytes.extend_from_slice(&riff_size.to_le_bytes());
-    bytes.extend_from_slice(b"WAVEfmt ");
-    bytes.extend_from_slice(&16_u32.to_le_bytes());
-    bytes.extend_from_slice(&1_u16.to_le_bytes());
-    bytes.extend_from_slice(&format.channels().to_le_bytes());
-    bytes.extend_from_slice(&format.sample_rate_hz().to_le_bytes());
-    bytes.extend_from_slice(&byte_rate.to_le_bytes());
-    bytes.extend_from_slice(&block_align.to_le_bytes());
-    bytes.extend_from_slice(&16_u16.to_le_bytes());
-    bytes.extend_from_slice(b"data");
-    bytes.extend_from_slice(&sample_bytes.to_le_bytes());
-    for sample in buffer.samples() {
-        bytes.extend_from_slice(&sample.to_le_bytes());
-    }
-    Ok(bytes)
+    /// The RIFF/WAVE structure or declared sizes were malformed.
+    #[error("malformed RIFF/WAVE structure")]
+    InvalidStructure,
+    /// The byte slice ended before a declared RIFF/WAVE field or chunk.
+    #[error("truncated RIFF/WAVE data")]
+    Truncated,
+    /// The file used a format outside bounded signed 16-bit PCM.
+    #[error("unsupported RIFF/WAVE PCM format")]
+    UnsupportedFormat,
+    /// A required unique format or data chunk was missing or duplicated.
+    #[error("RIFF/WAVE must contain exactly one format and one data chunk")]
+    MissingOrDuplicateChunk,
+    /// Parsed PCM metadata or contents violated the owned PCM contract.
+    #[error(transparent)]
+    Pcm(#[from] PcmError),
 }
 
 impl Ft8WaveformError {

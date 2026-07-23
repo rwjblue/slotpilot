@@ -69,6 +69,10 @@ handled and tested locally:
   reviewed command-line vector encodes it as a grid while the Rust packer
   chooses the reserved response code. SlotPilot classifies the packed field,
   not the text token, so the grid and ending remain distinct owned classes.
+- raw decoder SNR values for the three reviewed fixture expectations are 6–8
+  dB below the WSJT-X 3.0.0 values. The owned offline adapter applies +8 dB;
+  all three then remain inside the pre-recorded tolerances. The calibration is
+  fixture-bounded and does not support a broader sensitivity claim.
 
 The public pack API cannot encode the reviewed 22-bit-hashed compound call plus
 numeric report. SlotPilot decodes that vector with and without supplied hash

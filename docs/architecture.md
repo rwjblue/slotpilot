@@ -159,6 +159,14 @@ canonical mono signed 16-bit PCM at 12,000 Hz. One FT8 frame is 151,680 samples
 180,000-sample (15-second) offline slot. The in-memory RIFF/WAVE helper only
 serializes a checked buffer; it does not write, select, or play an audio device.
 
+The offline decoder accepts exactly one canonical 180,000-sample slot. Its
+bounded RIFF/WAVE parser requires uncompressed signed 16-bit PCM, validates
+declared byte rates and block alignment, skips bounded unknown chunks, and
+rejects missing, duplicate, truncated, or oversized content before decoding.
+The decoder returns owned integer time, frequency, and SNR metadata, removes
+only identical normalized results, and applies the protocol crate's stable
+ordering. Empty silence is a successful empty result, not an invented decode.
+
 A reference-process or fixture-based adapter may be used only in testing to compare known behavior.
 
 ## Audio boundary

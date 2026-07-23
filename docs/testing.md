@@ -78,6 +78,23 @@ message bits plus duration, placement, silence, amplitude, clipping, and
 RIFF/WAVE byte-order invariants rather than treating platform math-library PCM
 bytes as a new golden reference. No test plays or opens the generated audio.
 
+The Phase 1 recording comparison decodes canonical 12,000 Hz mono signed 16-bit
+slots over 600–1,800 Hz with a 1.000 sync threshold, normal all-metric search,
+no a-priori hints, and a 20-candidate cap. Private dependency tuning environment
+variables are rejected so checked-in fixture results cannot change with ambient
+process configuration. The clean recording is decoded twice and must produce
+the identical normalized sequence. Both recordings must satisfy their manifest
+recall floors, permitted-extra lists, and frequency/time/SNR tolerances.
+
+The dependency's raw SNR estimates were 8 dB below the WSJT-X reference for the
+clean signal and the first noisy signal, and 6 dB below for the second noisy
+signal. The owned adapter therefore applies a documented +8 dB Phase 1
+calibration: all three reviewed values then fall within the independently
+recorded tolerances. This is bounded conformance evidence, not a claim of
+general SNR or sensitivity parity. PCM parsing tests cover truncation, wrong
+encoding and bit depth, wrong slot length, lossless in-memory RIFF/WAVE
+round-trip, and silence with no decode.
+
 The fixture README defines the intentional refresh process. Ordinary CI parses
 the manifest, validates its schema and units, checks every SHA-256 and WAV
 header, and rejects missing provenance, duplicate identities, malformed data,

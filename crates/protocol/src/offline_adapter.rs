@@ -2,7 +2,11 @@
 
 use std::str::FromStr;
 
-use mfsk_core::ft8::wave_gen::{message_to_tones, tones_to_i16};
+use mfsk_core::ft8::{
+    decode::DecodeDepth,
+    decode_block::decode_block,
+    wave_gen::{message_to_tones, tones_to_i16},
+};
 use mfsk_core::msg::{
     CallsignHashTable,
     hash_table::ihashcall,
@@ -12,11 +16,14 @@ use slotpilot_domain::FullCallsign;
 
 use crate::{
     AmbiguousFt8Message, ClassifiedFt8Message, FT8_FRAME_SAMPLES, FT8_PCM_SAMPLE_RATE_HZ,
-    FT8_SLOT_SAMPLES, FreeTextFt8Message, Ft8CodecError, Ft8DecodeBitsRequest, Ft8EncodeRequest,
-    Ft8MessageClass, Ft8MessageCodec, Ft8WaveformError, Ft8WaveformPlacement, Ft8WaveformRequest,
-    Ft8WaveformSynthesizer, PackedFt8Bits, PcmBuffer, ResolvedFt8Message, UnresolvedHashFt8Message,
-    UnsupportedFt8Message,
+    FT8_SLOT_SAMPLES, FreeTextFt8Message, Ft8CodecError, Ft8Decode, Ft8DecodeBitsRequest,
+    Ft8DecodeConfig, Ft8DecodeDepth, Ft8DecodeError, Ft8DecodeMetadata, Ft8EncodeRequest,
+    Ft8MessageClass, Ft8MessageCodec, Ft8OfflineDecoder, Ft8WaveformError, Ft8WaveformPlacement,
+    Ft8WaveformRequest, Ft8WaveformSynthesizer, PackedFt8Bits, PcmBuffer, ResolvedFt8Message,
+    UnresolvedHashFt8Message, UnsupportedFt8Message,
 };
+
+const PHASE1_SNR_CALIBRATION_DB: f32 = 8.0;
 
 /// Reviewed offline FT8 message codec behind SlotPilot-owned values.
 ///
@@ -32,6 +39,100 @@ pub struct OfflineFt8Codec {
 #[derive(Debug, Clone, Default)]
 pub struct OfflineFt8Synthesizer {
     codec: OfflineFt8Codec,
+}
+
+/// Deterministic, in-memory-only FT8 slot decoder.
+#[derive(Debug, Clone, Default)]
+pub struct OfflineFt8Decoder {
+    codec: OfflineFt8Codec,
+}
+
+impl OfflineFt8Decoder {
+    /// Constructs an offline decoder with an empty callsign-hash context.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Constructs an offline decoder whose owned results may resolve known hashes.
+    #[must_use]
+    pub fn with_known_calls<'a>(known_calls: impl IntoIterator<Item = &'a FullCallsign>) -> Self {
+        Self {
+            codec: OfflineFt8Codec::with_known_calls(known_calls),
+        }
+    }
+}
+
+impl Ft8OfflineDecoder for OfflineFt8Decoder {
+    fn decode(
+        &self,
+        pcm: &PcmBuffer,
+        config: Ft8DecodeConfig,
+    ) -> Result<Vec<Ft8Decode>, Ft8DecodeError> {
+        if pcm.format().sample_rate_hz() != FT8_PCM_SAMPLE_RATE_HZ
+            || pcm.format().channels() != 1
+            || pcm.duration().frames() != FT8_SLOT_SAMPLES
+        {
+            return Err(Ft8DecodeError::UnsupportedPcmWindow);
+        }
+        if [
+            "MFSK_RATIO_EPS",
+            "MFSK_SYNC_LAG_S",
+            "MFSK_TRACE_PHANTOM",
+            "MFSK_PASS1_LIMIT",
+            "MFSK_BP_KIND",
+        ]
+        .iter()
+        .any(|name| std::env::var_os(name).is_some())
+        {
+            return Err(Ft8DecodeError::InvalidConfiguration {
+                detail: "private decoder tuning environment must be unset".to_owned(),
+            });
+        }
+
+        let depth = match config.depth() {
+            Ft8DecodeDepth::Normal => DecodeDepth::BpAll,
+            Ft8DecodeDepth::Deep => DecodeDepth::BpAllOsd,
+        };
+        let decoded = decode_block(
+            pcm.samples(),
+            config.minimum_audio_frequency().hz() as f32,
+            config.maximum_audio_frequency().hz() as f32,
+            f32::from(config.sync_threshold_milli()) / 1_000.0,
+            depth,
+            usize::from(config.maximum_candidates()),
+        );
+        let mut owned = Vec::with_capacity(decoded.len());
+        for result in decoded {
+            let frequency = rounded_u32(result.freq_hz)?;
+            let start_offset = rounded_i32(result.dt_sec * 1_000.0)?;
+            let signal_to_noise = rounded_i16(result.snr_db + PHASE1_SNR_CALIBRATION_DB)?;
+            let message = self.codec.decode_bits(&Ft8DecodeBitsRequest {
+                bits: PackedFt8Bits::new(result.message77.map(|bit| bit != 0)),
+            })?;
+            let candidate = Ft8Decode {
+                metadata: Ft8DecodeMetadata {
+                    start_offset_millis: start_offset,
+                    audio_frequency_hz: frequency,
+                    signal_to_noise_db: signal_to_noise,
+                },
+                message,
+            };
+            if let Some(existing) = owned.iter_mut().find(|existing: &&mut Ft8Decode| {
+                existing.metadata.start_offset_millis == candidate.metadata.start_offset_millis
+                    && existing.metadata.audio_frequency_hz == candidate.metadata.audio_frequency_hz
+                    && existing.message == candidate.message
+            }) {
+                if candidate.metadata.signal_to_noise_db > existing.metadata.signal_to_noise_db {
+                    *existing = candidate;
+                }
+            } else {
+                owned.push(candidate);
+            }
+        }
+        Ft8Decode::sort_deterministically(&mut owned);
+        Ok(owned)
+    }
 }
 
 impl OfflineFt8Synthesizer {
@@ -426,6 +527,27 @@ fn invalid_waveform(detail: &str) -> Ft8WaveformError {
     Ft8WaveformError::InvalidConfiguration {
         detail: detail.to_owned(),
     }
+}
+
+fn rounded_u32(value: f32) -> Result<u32, Ft8DecodeError> {
+    if !value.is_finite() || value < 0.0 || value > u32::MAX as f32 {
+        return Err(Ft8DecodeError::InvalidResultMetadata);
+    }
+    Ok(value.round() as u32)
+}
+
+fn rounded_i32(value: f32) -> Result<i32, Ft8DecodeError> {
+    if !value.is_finite() || value < i32::MIN as f32 || value > i32::MAX as f32 {
+        return Err(Ft8DecodeError::InvalidResultMetadata);
+    }
+    Ok(value.round() as i32)
+}
+
+fn rounded_i16(value: f32) -> Result<i16, Ft8DecodeError> {
+    if !value.is_finite() || value < f32::from(i16::MIN) || value > f32::from(i16::MAX) {
+        return Err(Ft8DecodeError::InvalidResultMetadata);
+    }
+    Ok(value.round() as i16)
 }
 
 #[cfg(test)]

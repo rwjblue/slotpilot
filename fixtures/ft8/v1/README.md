@@ -53,3 +53,10 @@ rather than infer the owned message class from the rendered text alone.
 Passing this corpus proves only the enumerated message and recording cases
 under the documented tolerances. It is not a general decoder-sensitivity,
 performance, WSJT-X, or JTDX parity claim.
+
+SlotPilot's v1 comparison uses the maintained configuration documented in
+`docs/testing.md`: 600–1,800 Hz, 1.000 sync threshold, normal all-metric search,
+no a-priori hints, and at most 20 candidates. Result text and classification
+must match, while integer frequency, time, and calibrated SNR use the manifest
+tolerances. Only the listed third signal may appear as an extra in the
+overlapping fixture.
