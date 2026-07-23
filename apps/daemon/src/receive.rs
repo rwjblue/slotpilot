@@ -1313,4 +1313,55 @@ mod tests {
         }
         assert!(saw_failure);
     }
+
+    #[test]
+    fn production_store_couples_committed_decode_to_ordered_event() {
+        let input = FakeInput {
+            batches: silence_batches(1),
+            ..FakeInput::default()
+        };
+        let service_instance_id: ServiceInstanceId = "svc_phase2001".parse().unwrap();
+        let mut coordinator = LiveReceiveCoordinator::new(
+            input,
+            FakeDecoder {
+                results: Ok(Vec::new()),
+            },
+            crate::PublicReceiveStore::in_memory().unwrap(),
+            LiveReceiveCoordinatorConfig {
+                service_instance_id: service_instance_id.clone(),
+                process_generation: process_generation(),
+                selection: selection(),
+                decode: decode_config(),
+                clock: ReceiveClockConfig::default(),
+            },
+        );
+        coordinator.start(initial_clock()).unwrap();
+        for step in 0..40 {
+            let observed_millis = 1_000 + step * 700;
+            coordinator
+                .observe_clock(
+                    clock_at(observed_millis),
+                    MonotonicInstant::from_millis(observed_millis),
+                )
+                .unwrap();
+            let _ = coordinator
+                .poll(
+                    MonotonicInstant::from_millis(observed_millis),
+                    30_000 + i64::try_from(observed_millis - 1_000).unwrap(),
+                )
+                .unwrap();
+        }
+        let store = coordinator.store.into_inner();
+        let events = store
+            .replay_events(&service_instance_id, 0, 10)
+            .unwrap()
+            .events;
+        assert_eq!(events.len(), 1);
+        let payload: slotpilot_api::EventPayload =
+            serde_json::from_str(&events[0].event_json).unwrap();
+        assert!(matches!(
+            payload,
+            slotpilot_api::EventPayload::ReceiveDecode(_)
+        ));
+    }
 }

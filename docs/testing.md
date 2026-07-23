@@ -219,6 +219,21 @@ Keep JSON fixtures for commands, results, errors, events, and snapshots. Test:
 - reconnect and event cursor behavior;
 - local endpoint permissions.
 
+Version-2 receive fixtures cover exact start selection, active status, durable
+decode events, bounded waterfall events, and history responses while all
+version-1 Phase 0 fixtures continue to round-trip unchanged. Tests reject
+version-1 receive commands, invalid selections, oversized device/history/
+decode/waterfall collections, malformed framing, and unknown events as state
+transitions. CLI integration exercises the same typed values through table,
+JSON, and one-envelope-per-line JSONL output without prompts.
+
+The daemon receive API fake proves start/stop same-ID replay, conflicting reuse,
+journal-failure retry through the running port identity, inactive restart, and
+stable device identity separate from duplicate display metadata. Storage fault
+injection proves decode/event atomicity: invalid publication rolls back the
+receive row, exact retry reuses both sequences, and no event can precede its
+committed evidence.
+
 ### Fault injection
 
 Every transmit-related subsystem needs focused tests for faults at each boundary before, during, and after PTT. The expected result is explicit inhibition, immediate stop, recoverable state, or retained diagnostics—not an implicit hang.

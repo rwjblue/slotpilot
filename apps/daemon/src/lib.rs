@@ -18,12 +18,18 @@ use slotpilot_storage::{AcceptOutcome, AcceptedCommand, StorageError, Store};
 use thiserror::Error;
 
 mod receive;
+mod receive_api;
 
 pub use receive::{
     DaemonReceiveInput, DaemonReceiveStore, LiveReceiveCoordinator, LiveReceiveCoordinatorConfig,
     ReceiveCoordinatorError, ReceiveInhibition, ReceiveLifecycleEvent, ReceiveLifecycleState,
     ReceivePollEvent, ReceiveSelection, ReceiveStopReason, SystemReceiveInput,
     WORKER_BATCH_CAPACITY,
+};
+pub use receive_api::{
+    PublicReceiveStore, ReceiveApiFault, ReceiveApiPort, ReceiveApiProcessor, map_input_device,
+    map_lifecycle, map_receive_page, map_receive_record, map_receive_selection,
+    map_waterfall_snapshot,
 };
 
 /// Failure before a bounded API response could be durably produced.
@@ -52,6 +58,9 @@ pub enum EventProcessorError {
     /// The Phase 0 marker exceeded its fixed bound.
     #[error("Phase 0 notice must not exceed 512 bytes")]
     NoticeTooLong,
+    /// A receive event exceeded its fixed public collection/text bound.
+    #[error("event payload exceeded its public bound")]
+    PayloadBound,
 }
 
 /// Durable ordered event publisher and bounded replay service.
@@ -100,6 +109,19 @@ impl EventService {
             return Err(EventProcessorError::NoticeTooLong);
         }
         let payload = EventPayload::Phase0Notice { message };
+        self.publish_event(event_id, payload, occurred_utc_millis)
+    }
+
+    /// Appends one validated owned event payload.
+    pub fn publish_event(
+        &mut self,
+        event_id: EventId,
+        payload: EventPayload,
+        occurred_utc_millis: i64,
+    ) -> Result<EventEnvelope, EventProcessorError> {
+        payload
+            .validate()
+            .map_err(|_| EventProcessorError::PayloadBound)?;
         let event_json = serde_json::to_string(&payload)?;
         let sequence = self.store.append_event(
             &event_id,
@@ -122,20 +144,27 @@ impl EventService {
         &self,
         request: SubscriptionRequest,
     ) -> Result<SubscriptionResponse, EventProcessorError> {
-        if request.api_version != API_VERSION {
-            return Ok(subscription_outcome(SubscriptionOutcome::InvalidRequest {
-                reason: SubscriptionInvalidReason::IncompatibleApiVersion,
-            }));
+        if !slotpilot_api::SUPPORTED_API_VERSIONS.contains(&request.api_version) {
+            return Ok(subscription_outcome(
+                request.api_version,
+                SubscriptionOutcome::InvalidRequest {
+                    reason: SubscriptionInvalidReason::IncompatibleApiVersion,
+                },
+            ));
         }
         if request.limit == 0 || request.limit > MAX_REPLAY_EVENTS {
-            return Ok(subscription_outcome(SubscriptionOutcome::InvalidRequest {
-                reason: SubscriptionInvalidReason::InvalidLimit,
-            }));
+            return Ok(subscription_outcome(
+                request.api_version,
+                SubscriptionOutcome::InvalidRequest {
+                    reason: SubscriptionInvalidReason::InvalidLimit,
+                },
+            ));
         }
         if let Some(cursor) = &request.after
             && cursor.service_instance_id != self.service_instance_id
         {
             return Ok(subscription_outcome(
+                request.api_version,
                 SubscriptionOutcome::IncompatibleGeneration {
                     requested_service_instance_id: cursor.service_instance_id.clone(),
                     current_service_instance_id: self.service_instance_id.clone(),
@@ -152,14 +181,18 @@ impl EventService {
         if let Some(earliest) = window.earliest_sequence
             && requested_sequence < earliest.saturating_sub(1)
         {
-            return Ok(subscription_outcome(SubscriptionOutcome::CursorGap {
-                requested: cursor(&self.service_instance_id, requested_sequence),
-                earliest_available: cursor(&self.service_instance_id, earliest),
-            }));
+            return Ok(subscription_outcome(
+                request.api_version,
+                SubscriptionOutcome::CursorGap {
+                    requested: cursor(&self.service_instance_id, requested_sequence),
+                    earliest_available: cursor(&self.service_instance_id, earliest),
+                },
+            ));
         }
         let latest = window.latest_sequence.unwrap_or(0);
         if requested_sequence > latest {
             return Ok(subscription_outcome(
+                request.api_version,
                 SubscriptionOutcome::CursorUnavailable {
                     requested: cursor(&self.service_instance_id, requested_sequence),
                     latest_available: cursor(&self.service_instance_id, latest),
@@ -172,7 +205,7 @@ impl EventService {
             .into_iter()
             .map(|stored| {
                 Ok(EventEnvelope {
-                    api_version: API_VERSION,
+                    api_version: request.api_version,
                     service_instance_id: stored.service_instance_id,
                     sequence: stored.sequence,
                     event_id: stored.event_id,
@@ -184,11 +217,14 @@ impl EventService {
         let next_sequence = events
             .last()
             .map_or(requested_sequence, |event| event.sequence);
-        Ok(subscription_outcome(SubscriptionOutcome::Events {
-            events,
-            next_cursor: cursor(&self.service_instance_id, next_sequence),
-            has_more: window.has_more,
-        }))
+        Ok(subscription_outcome(
+            request.api_version,
+            SubscriptionOutcome::Events {
+                events,
+                next_cursor: cursor(&self.service_instance_id, next_sequence),
+                has_more: window.has_more,
+            },
+        ))
     }
 
     /// Applies the retention boundary used by replay-gap tests and future policy.
@@ -204,9 +240,9 @@ fn cursor(service_instance_id: &ServiceInstanceId, sequence: u64) -> EventCursor
     }
 }
 
-fn subscription_outcome(outcome: SubscriptionOutcome) -> SubscriptionResponse {
+fn subscription_outcome(api_version: u32, outcome: SubscriptionOutcome) -> SubscriptionResponse {
     SubscriptionResponse {
-        api_version: API_VERSION,
+        api_version,
         outcome,
     }
 }
@@ -227,6 +263,36 @@ pub fn serve_noop_once(
     cancellation: &CancellationToken,
 ) -> Result<(), IpcError> {
     server.serve_once(&NoopService::new(service_instance_id), cancellation)
+}
+
+/// Serves one complete version-2 receive command through the local endpoint.
+///
+/// The caller supplies acceptance time from its daemon clock. The processor
+/// owns all mutation replay semantics; this transport adds no alternate path.
+pub fn serve_receive_once<P: ReceiveApiPort>(
+    server: &LocalServer,
+    processor: &mut ReceiveApiProcessor<P>,
+    accepted_utc_millis: i64,
+    cancellation: &CancellationToken,
+) -> Result<(), IpcError> {
+    server.serve_exchange(cancellation, |request: CommandEnvelope| {
+        let api_version = request.api_version;
+        let request_id = request.request_id.clone();
+        processor
+            .execute(request, accepted_utc_millis)
+            .unwrap_or_else(|error| ResponseEnvelope {
+                api_version,
+                request_id,
+                outcome: ResponseOutcome::Error(ApiError {
+                    code: ErrorCode::ReceiveUnavailable,
+                    message: error.to_string(),
+                    retryable: true,
+                    details: ErrorDetails::Receive {
+                        reason: slotpilot_api::ReceiveInhibitionKind::StorageFailed,
+                    },
+                }),
+            })
+    })
 }
 
 impl CommandProcessor {

@@ -15,7 +15,7 @@ mod receive;
 
 pub use receive::{
     MAX_RECEIVE_PAGE_SIZE, MAX_STORED_DECODES_PER_WINDOW, ReceiveClockFault, ReceiveClockHealth,
-    ReceiveDiagnosticSummary, ReceiveInsertOutcome, ReceivePage, ReceiveRecord,
+    ReceiveDiagnosticSummary, ReceiveEventCommit, ReceiveInsertOutcome, ReceivePage, ReceiveRecord,
     ReceiveWindowContext, SequencedReceiveRecord,
 };
 
@@ -55,6 +55,9 @@ pub enum StorageError {
     /// A receive query requested an unbounded or empty page.
     #[error("receive page limit must be between 1 and {MAX_RECEIVE_PAGE_SIZE}")]
     InvalidPageLimit,
+    /// A daemon-supplied public receive event could not be encoded.
+    #[error("receive event payload is invalid")]
+    InvalidReceiveEventPayload,
 }
 
 /// Original accepted command identity and result recovered for safe retry.

@@ -59,6 +59,10 @@ unresolved-hash, unsupported, ambiguous, or free-text decode with its metadata.
 The coordinator derives no QSO state, caller policy, duplicate decision,
 logging side effect, transmit authority, or scheduling decision.
 
-This is an internal service seam only. It adds no API, CLI, or wire behavior,
-waterfall publication, output device, rig connection, PTT path, transmit
-authority, WSPR behavior, or RF action.
+API version 2 maps this seam to explicit discovery, start, stop, status,
+history, ordered decode/lifecycle/health/discontinuity events, and bounded
+rate-limited waterfall frames. The mapping and CLI remain clients of the same
+daemon-owned coordinator; they add no second hardware owner.
+
+There is still no output device, rig connection, PTT path, transmit authority,
+QSO policy, WSPR behavior, or RF action.

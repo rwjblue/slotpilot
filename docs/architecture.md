@@ -265,6 +265,15 @@ the callback. Faults stop input and remain inhibited until an explicit
 stop/start with a fresh stream generation; daemon restart is inactive. The
 full composition contract is [`live-receive.md`](live-receive.md).
 
+API version 2 maps this internal seam to owned receive-only commands,
+snapshots, health, lifecycle, decode, history, and bounded waterfall values.
+Version 1 remains supported for its Phase 0 surface. Receive start/stop use
+stable request identities at both the running owner and durable journal. The
+production receive-store adapter inserts each decode event in the same
+transaction as its schema-v2 record, so ordered replay cannot claim an
+uncommitted decode. API/CLI types import no private audio, FFT, SQLite, or FT8
+dependency values.
+
 ## Time boundary
 
 The slot clock samples UTC and monotonic time together, calculates future protocol boundaries, and schedules against monotonic deadlines. It periodically checks the mapping and exposes clock health.

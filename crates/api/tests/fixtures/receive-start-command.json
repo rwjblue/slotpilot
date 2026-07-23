@@ -1,0 +1,19 @@
+{
+  "api_version": 2,
+  "request_id": "req_phase2start",
+  "command": {
+    "kind": "receive_start",
+    "selection": {
+      "device_identity": {
+        "platform": "mac_os_core_audio",
+        "opaque_id": "coreaudio:input-1"
+      },
+      "configuration": {
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "sample_format": "signed16",
+        "selected_channel": 1
+      }
+    }
+  }
+}

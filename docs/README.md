@@ -21,6 +21,7 @@ This directory is the durable design record for the project.
 - [`ipc.md`](ipc.md): user-scoped local transport, framing, permissions, and recovery.
 - [`audio-timeline.md`](audio-timeline.md): deterministic receive resampling, slot alignment, tolerances, and fail-closed reset semantics.
 - [`receive-clock.md`](receive-clock.md): production UTC/monotonic sampling, receive health latch, alignment gate, and recovery semantics.
+- [`live-receive.md`](live-receive.md): daemon-owned receive lifecycle, bounded worker composition, persistence, and API boundary.
 - [`spectrum-waterfall.md`](spectrum-waterfall.md): bounded receive FFT, owned bin/row units, reset metadata, and publication coalescing.
 - [`development-release.md`](development-release.md): pinned setup, no-op handshake, and unsigned local artifacts.
 - [`dependencies/mfsk-core-0.7.4.md`](dependencies/mfsk-core-0.7.4.md): exact offline FT8 dependency review and upgrade procedure.

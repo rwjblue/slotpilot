@@ -88,11 +88,11 @@ Names may be refined during implementation, but command concepts and parity with
 
 ## Command envelope
 
-Every Phase 0 request uses a bounded versioned envelope:
+Every request uses a bounded versioned envelope:
 
 ```json
 {
-  "api_version": 1,
+  "api_version": 2,
   "request_id": "req_01jabcde9",
   "command": {
     "kind": "get_snapshot"
@@ -100,11 +100,34 @@ Every Phase 0 request uses a bounded versioned envelope:
 }
 ```
 
-The no-op service supports `get_capabilities` and `get_snapshot`.
-`get_capabilities` carries at most 16 client-supported versions and selects
-version 1. An unsupported envelope version or lack of a common version returns
+Version 2 adds receive-only commands while version 1 remains supported for its
+landed Phase 0 commands and fixtures. `get_capabilities` carries at most 16
+client-supported versions and selects the first client preference present in
+the service set `[2, 1]`. An unsupported envelope version or lack of a common version returns
 `incompatible_api_version`; an oversized list returns
 `negotiation_too_large`.
+
+Version-2 receive commands are:
+
+```text
+list_input_devices
+receive_start { selection }
+receive_stop
+get_receive_status
+query_receive_history { after_sequence, limit }
+```
+
+`receive_start` requires the stable platform identity and exact rate, channel
+count, sample format, and selected channel returned by discovery. Display names
+cannot appear in the selection and there is no default-device fallback.
+History pages contain 1–100 records. Discovery contains at most 64 devices and
+64 configuration ranges per device. Receive records retain at most 128 decode
+outcomes. Waterfall events retain at most 2,048 bins and are emitted only from
+the spectrum model's rate-limited, single-pending-token snapshot path.
+
+A version-1 envelope using any receive command returns
+`command_unavailable_in_version`; it is never guessed or interpreted as a
+Phase 0 command.
 
 JSON objects may gain additive fields, which version-1 readers ignore. Unknown
 command, result, or error-detail variants are incompatible rather than guessed
@@ -113,7 +136,12 @@ from strings.
 Read-only commands are evaluated afresh and are not recorded in the request
 journal. Phase 0 includes one bounded `noop_mutation` solely to exercise
 durable retry behavior; it persists no station state and performs no external
-side effect.
+side effect. Version-2 receive start/stop are mutating commands. The running
+receive owner applies a stable request ID idempotently, then the durable journal
+retains the exact response for cross-restart replay. If journaling fails after
+the live operation, retrying the same ID reaches the port's same-process
+identity cache rather than duplicating the mutation. A daemon restart remains
+receive-inactive even when an old request's historical result is replayed.
 
 Typed command serialization produces canonical JSON bytes. Every semantic
 field participates, and the no-op marker is limited to 128 bytes.
@@ -171,10 +199,22 @@ transmit authority. Each daemon process generation has a new `svc_` identity.
 That identity is for reconnect/restart detection only; it is not persisted
 authority and a changed identity never implies restoration of station state.
 
-Reviewed version-1 command, result, error, capability, snapshot, event, cursor,
-and replay-outcome JSON fixtures are maintained under
+Reviewed version-1 compatibility fixtures and version-2 receive command,
+result, snapshot, decode-event, and waterfall-event fixtures are maintained under
 `crates/api/tests/fixtures/`. Human table output and JSON output are renderings
 of the same typed response model.
+
+Version-2 snapshots add receive lifecycle, explicit selection, audio health,
+and clock health. Receive events cover lifecycle, health, discontinuity,
+durable decode evidence, and bounded waterfall frames. Every resolved,
+unresolved-hash, unsupported, ambiguous, and free-text classification remains
+typed evidence; none is a QSO or automation transition.
+
+A receive decode event is inserted in the same SQLite transaction as its
+receive window, diagnostics, and classifications. Event-insert failure rolls
+back a new receive record. Exact retries return the existing receive and event
+sequences, and an older committed receive record may be repaired by adding its
+missing event without ever publishing an uncommitted decode.
 
 Events include API version, stable `evt_` identity, UTC milliseconds, daemon
 generation, monotonically increasing SQLite sequence, and a SlotPilot-owned
@@ -203,7 +243,7 @@ replay. A daemon restart uses a new identity, so persisted old cursors receive
 `incompatible_generation`; clients must refresh their snapshot. Cancellation
 is checked at IPC connection and frame boundaries.
 
-Version-1 clients deserialize recognized payloads into typed variants.
+Versioned clients deserialize recognized payloads into typed variants.
 Unrecognized event kinds retain their opaque JSON fields for display or
 diagnostics, but cannot trigger a typed state transition and never grant
 authority. Unknown additive envelope fields remain tolerated.
@@ -213,6 +253,25 @@ authority. Unknown additive envelope fields remain tolerated.
 Default endpoints are user-local Unix sockets on macOS/Linux and named pipes on Windows. Loopback TCP is development-only and must bind explicitly to loopback.
 
 Authentication/authorization should initially rely on OS-local peer and endpoint permissions, with explicit review before adding multi-user or remote access.
+
+## Receive CLI
+
+The current receive-only routes are:
+
+```text
+slotpilot status <runtime> [--json]
+slotpilot devices audio list <runtime> [--json]
+slotpilot receive status <runtime> [--json]
+slotpilot receive start <runtime> <platform> <opaque-id> <rate> <channels> <format> <channel> --request-id <req_...> [--json]
+slotpilot receive stop <runtime> --request-id <req_...> [--json]
+slotpilot receive history <runtime> <after-sequence> <limit> [--json]
+slotpilot events follow <runtime> <after-sequence> <limit> --jsonl
+```
+
+Machine modes never prompt. JSON emits one bounded response. JSONL emits one
+typed event envelope per line; non-event cursor outcomes emit one response
+value. Event follow obtains a coherent snapshot first and uses its daemon
+generation, so it cannot silently continue a stale cursor after restart.
 
 ## Example FT8 run
 

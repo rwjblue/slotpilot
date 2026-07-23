@@ -1,0 +1,37 @@
+{
+  "api_version": 2,
+  "request_id": "req_phase2status",
+  "outcome": "success",
+  "payload": {
+    "kind": "receive_status",
+    "value": {
+      "lifecycle": {
+        "state": "receiving",
+        "stream_generation": 4
+      },
+      "selection": {
+        "device_identity": {
+          "platform": "mac_os_core_audio",
+          "opaque_id": "coreaudio:input-1"
+        },
+        "configuration": {
+          "sample_rate_hz": 48000,
+          "channels": 2,
+          "sample_format": "signed16",
+          "selected_channel": 1
+        }
+      },
+      "audio": {
+        "latency_millis": 25,
+        "drift_parts_per_million": 10,
+        "overflow_count": 0,
+        "clipped_sample_count": 3,
+        "max_callback_delay_millis": 4
+      },
+      "clock": {
+        "state": "healthy",
+        "mapping_age_millis": 100
+      }
+    }
+  }
+}

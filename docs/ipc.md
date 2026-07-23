@@ -1,6 +1,6 @@
 # Local IPC contract
 
-Phase 0 uses one request and one response per local connection, framed as a
+The local API uses one request and one response per connection, framed as a
 four-byte big-endian payload length followed by one JSON value. Payloads are
 limited to 64 KiB. Oversized lengths are rejected before allocation; malformed
 JSON, incomplete frames, disconnect, and cooperative cancellation have typed
@@ -36,5 +36,7 @@ requests a fresh snapshot, whose service-instance ID distinguishes daemon
 restart. Cooperative cancellation is checked before connection acceptance and
 at every frame boundary; it does not reinterpret a partial message.
 
-Transport admission provides no transmit authority and carries only the
-versioned Phase 0 API contracts.
+Transport admission provides no transmit authority. It carries the retained
+version-1 Phase 0 contract and version-2 receive-only commands, snapshots,
+history pages, and bounded event replay through the same framing and
+authorization path.

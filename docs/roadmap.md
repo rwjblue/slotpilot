@@ -48,9 +48,10 @@ reject stale, jumped, delayed, or misaligned mappings. A bounded worker-side
 spectrum/waterfall model now has explicit bin/time/magnitude units, reset
 metadata, and coalesced publication. SQLite schema version 2 now stores
 bounded receive-window context, diagnostics, and exact owned FT8
-classifications atomically. There is still no daemon-composed capture, live
-decode or protocol event path, audio output, radio, logging, desktop, WSPR, or
-transmit implementation.
+classifications atomically. The daemon now composes exact receive input,
+clock-gated live decode, and atomic ordered decode events behind API version 2;
+the CLI has human, JSON, and JSONL receive routes. There is still no audio
+output, radio, logging, desktop, WSPR, or transmit implementation.
 
 ## Phase 0 — workspace and contracts
 
@@ -134,8 +135,8 @@ WSPR live receive is deferred to Phase 8.
 Phase 2 software implementation is in progress. The daemon now has an internal,
 receive-only composition of exact input ownership, bounded worker processing,
 clock-gated live FT8 decode, typed lifecycle and fault handling, and schema-v2
-persistence. Public receive API/CLI behavior and the human-required physical
-input validation remain separate work.
+persistence, plus versioned API/CLI observation and control. The
+human-required physical input validation remains separate work.
 
 Phase 2 entry was reviewed at the Phase 1 closeout. Its required boundaries are
 already explicit: daemon-only hardware ownership, portable stable input-device

@@ -6,7 +6,7 @@ use slotpilot_audio::{
     InputHealth, InputPlatform, InputSampleFormat, ProcessGeneration, ReceiveTimelineHealth,
     StreamGeneration,
 };
-use slotpilot_domain::{ReceiveWindowId, ServiceInstanceId};
+use slotpilot_domain::{EventId, ReceiveWindowId, ServiceInstanceId};
 use slotpilot_protocol::{
     AmbiguousFt8Message, ClassifiedFt8Message, FreeTextFt8Message, Ft8Decode, Ft8DecodeMetadata,
     Ft8MessageClass, ResolvedFt8Message, UnresolvedHashFt8Message, UnsupportedFt8Message,
@@ -234,6 +234,15 @@ pub enum ReceiveInsertOutcome {
     },
 }
 
+/// Atomic durable receive plus public-event publication outcome.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ReceiveEventCommit {
+    /// Idempotent receive insert result.
+    pub receive: ReceiveInsertOutcome,
+    /// Ordered operational-event sequence.
+    pub event_sequence: u64,
+}
+
 /// One receive record with its global pagination sequence.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SequencedReceiveRecord {
@@ -291,6 +300,113 @@ impl Store {
         }
         transaction.commit()?;
         Ok(ReceiveInsertOutcome::Inserted { sequence })
+    }
+
+    /// Atomically records receive evidence and its public event payload.
+    ///
+    /// A failed event insert rolls back a newly inserted receive record. A
+    /// retry repairs an older committed receive record that predates event
+    /// coupling, while exact event retries return the original sequence.
+    pub fn record_receive_with_event(
+        &mut self,
+        record: &ReceiveRecord,
+        event_id: &EventId,
+        event_json: &str,
+        occurred_utc_millis: i64,
+    ) -> Result<ReceiveEventCommit, StorageError> {
+        self.record_receive_with_event_builder(record, event_id, occurred_utc_millis, |_| {
+            Ok(event_json.to_owned())
+        })
+    }
+
+    /// Atomically records receive evidence and builds its event after the
+    /// receive sequence is known inside the same transaction.
+    pub fn record_receive_with_event_builder(
+        &mut self,
+        record: &ReceiveRecord,
+        event_id: &EventId,
+        occurred_utc_millis: i64,
+        event_json: impl FnOnce(u64) -> Result<String, StorageError>,
+    ) -> Result<ReceiveEventCommit, StorageError> {
+        let transaction = self
+            .connection
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let receive = if let Some(sequence) = find_existing_sequence(&transaction, &record.context)?
+        {
+            let existing = read_receive_by_sequence(&transaction, sequence)?.ok_or(
+                StorageError::InvalidPersistedReceiveValue("missing collided receive record"),
+            )?;
+            if existing.record != *record {
+                return Err(StorageError::IdentityCollision);
+            }
+            ReceiveInsertOutcome::Existing {
+                sequence: existing.sequence,
+            }
+        } else {
+            insert_window(&transaction, record)?;
+            let sequence = sequence_from_i64(transaction.last_insert_rowid())?;
+            insert_diagnostics(&transaction, record)?;
+            for (index, decode) in record.decodes.iter().enumerate() {
+                insert_decode(
+                    &transaction,
+                    &record.context.receive_window_id,
+                    index,
+                    decode,
+                )?;
+            }
+            ReceiveInsertOutcome::Inserted { sequence }
+        };
+        let receive_sequence = match receive {
+            ReceiveInsertOutcome::Inserted { sequence }
+            | ReceiveInsertOutcome::Existing { sequence } => sequence,
+        };
+        let event_json = event_json(receive_sequence)?;
+
+        let existing_event = transaction
+            .query_row(
+                "SELECT sequence, service_instance_id, event_json, occurred_utc_millis
+                 FROM operational_events
+                 WHERE event_id = ?1",
+                [event_id.as_str()],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                    ))
+                },
+            )
+            .optional()?;
+        let event_sequence =
+            if let Some((sequence, service_instance_id, stored_json, stored_time)) = existing_event
+            {
+                if service_instance_id != record.context.service_instance_id.as_str()
+                    || stored_json != event_json
+                    || stored_time != occurred_utc_millis
+                {
+                    return Err(StorageError::IdentityCollision);
+                }
+                sequence_from_i64(sequence)?
+            } else {
+                transaction.execute(
+                    "INSERT INTO operational_events (
+                        event_id, service_instance_id, event_json, occurred_utc_millis
+                     ) VALUES (?1, ?2, ?3, ?4)",
+                    params![
+                        event_id.as_str(),
+                        record.context.service_instance_id.as_str(),
+                        event_json,
+                        occurred_utc_millis
+                    ],
+                )?;
+                sequence_from_i64(transaction.last_insert_rowid())?
+            };
+        transaction.commit()?;
+        Ok(ReceiveEventCommit {
+            receive,
+            event_sequence,
+        })
     }
 
     /// Loads one exact receive identity with all diagnostic/decode evidence.
@@ -1344,6 +1460,61 @@ mod tests {
                 Ft8OutcomeKind::FreeText,
             ]
         );
+    }
+
+    #[test]
+    fn receive_and_public_event_commit_atomically_and_retry_exactly() {
+        let mut store = Store::open_in_memory().unwrap();
+        let record = record(
+            "rxw_01jabcdf9",
+            45_000,
+            1,
+            "coreaudio:input-1",
+            classified_decodes(),
+        );
+        let event_id: EventId = "evt_01jabcdf9".parse().unwrap();
+        assert!(
+            store
+                .record_receive_with_event(&record, &event_id, "{invalid", 65_000)
+                .is_err()
+        );
+        assert!(
+            store
+                .receive_record(&record.context().receive_window_id)
+                .unwrap()
+                .is_none()
+        );
+        let first = store
+            .record_receive_with_event(
+                &record,
+                &event_id,
+                r#"{"kind":"receive_decode","receive_window_id":"rxw_01jabcdf9"}"#,
+                65_000,
+            )
+            .unwrap();
+        assert!(matches!(
+            first.receive,
+            ReceiveInsertOutcome::Inserted { sequence: 1 }
+        ));
+        let replay = store
+            .record_receive_with_event(
+                &record,
+                &event_id,
+                r#"{"kind":"receive_decode","receive_window_id":"rxw_01jabcdf9"}"#,
+                65_000,
+            )
+            .unwrap();
+        assert_eq!(
+            replay,
+            ReceiveEventCommit {
+                receive: ReceiveInsertOutcome::Existing { sequence: 1 },
+                event_sequence: first.event_sequence,
+            }
+        );
+        let events = store
+            .replay_events(&record.context().service_instance_id, 0, 10)
+            .unwrap();
+        assert_eq!(events.events.len(), 1);
     }
 
     #[test]

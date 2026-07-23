@@ -55,6 +55,13 @@ collision. The window, diagnostic row, and all decode rows are inserted in one
 immediate transaction; any constraint or injected failure rolls back all of
 them.
 
+The daemon's public receive-store adapter extends that transaction through the
+ordered `receive_decode` event insert. Event serialization or constraint
+failure therefore rolls back a new window and its evidence. Exact retry returns
+the original receive and event sequences; an older receive row created before
+event coupling may be repaired by adding its missing deterministic event. No
+public event can claim an uncommitted decode.
+
 Receive pages are globally ordered by SQLite sequence, accept only 1 through
 100 records, fetch one look-ahead row for `has_more`, and report earliest and
 latest retained cursors. Explicit pruning deletes older windows and cascades

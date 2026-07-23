@@ -18,7 +18,11 @@ make no compatibility promise beyond the reviewed schema and wire fixtures.
 - Added bounded Phase 2 receive foundations: exact input discovery/capture,
   deterministic resampling and slot/clock gating, a bounded spectrum model,
   and SQLite schema version 2 for atomic receive diagnostics/classifications.
+- Composed receive-only input, live FT8 decode, and atomic decode events in the
+  daemon, with API version 2 and human/JSON/JSONL CLI routes. Version 1 remains
+  available for its Phase 0 commands and fixtures.
 
-RF operation is unavailable. Offline FT8 library tests do not provide live
-audio or station behavior. This version cannot operate a radio and has no
-audio-device, WSPR, logging, station-control, transmit, or desktop behavior.
+RF and transmit operation are unavailable. Ordinary tests use fake/replay
+input and do not provide physical audio evidence. This version cannot operate
+a radio and has no output-audio, rig, PTT, WSPR, logging, QSO, transmit, or
+desktop behavior.

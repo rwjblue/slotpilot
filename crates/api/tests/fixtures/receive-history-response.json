@@ -1,0 +1,13 @@
+{
+  "api_version": 2,
+  "request_id": "req_phase2history",
+  "outcome": "success",
+  "payload": {
+    "kind": "receive_history",
+    "value": {
+      "records": [],
+      "next_sequence": 12,
+      "has_more": false
+    }
+  }
+}

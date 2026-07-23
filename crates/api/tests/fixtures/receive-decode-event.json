@@ -1,0 +1,60 @@
+{
+  "api_version": 2,
+  "service_instance_id": "svc_01jabcde9",
+  "sequence": 8,
+  "event_id": "evt_01jabcdf9",
+  "occurred_utc_millis": 65000,
+  "event": {
+    "kind": "receive_decode",
+    "sequence": 3,
+    "receive_window_id": "rxw_01jabcdf9",
+    "slot_start_utc_millis": 45000,
+    "selection": {
+      "device_identity": {
+        "platform": "mac_os_core_audio",
+        "opaque_id": "coreaudio:input-1"
+      },
+      "configuration": {
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "sample_format": "signed16",
+        "selected_channel": 1
+      }
+    },
+    "audio": {
+      "latency_millis": 25,
+      "drift_parts_per_million": 10,
+      "overflow_count": 0,
+      "clipped_sample_count": 3,
+      "max_callback_delay_millis": 4
+    },
+    "clock": {
+      "state": "healthy",
+      "mapping_age_millis": 100
+    },
+    "decodes": [
+      {
+        "start_offset_millis": 100,
+        "audio_frequency_hz": 1000,
+        "signal_to_noise_db": -12,
+        "classification": {
+          "kind": "resolved",
+          "canonical_text": "CQ K1ABC FN42",
+          "sender": "K1ABC",
+          "recipient": null,
+          "message_class": "general_call"
+        }
+      },
+      {
+        "start_offset_millis": 200,
+        "audio_frequency_hz": 1100,
+        "signal_to_noise_db": -10,
+        "classification": {
+          "kind": "unresolved_hash",
+          "canonical_text": "<123> K1ABC -10",
+          "detail": "sender hash unresolved"
+        }
+      }
+    ]
+  }
+}

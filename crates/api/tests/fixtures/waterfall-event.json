@@ -1,0 +1,20 @@
+{
+  "api_version": 2,
+  "service_instance_id": "svc_01jabcde9",
+  "sequence": 9,
+  "event_id": "evt_01jabcdf0",
+  "occurred_utc_millis": 65100,
+  "event": {
+    "kind": "waterfall_frame",
+    "stream_generation": 4,
+    "utc_unix_millis": 65100,
+    "frame_sequence": 12,
+    "coalesced": true,
+    "bins": [
+      {
+        "frequency_millihz": 1000000,
+        "magnitude_millidbfs": -42000
+      }
+    ]
+  }
+}

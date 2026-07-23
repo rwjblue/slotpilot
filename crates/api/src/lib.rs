@@ -1,6 +1,6 @@
 //! Versioned command, result, error, capability, and snapshot contracts.
 //!
-//! Version 1 uses JSON objects. Unknown additive object fields are ignored
+//! Versions 1 and 2 use JSON objects. Unknown additive object fields are ignored
 //! during deserialization, while unknown command/result variants and
 //! incompatible API versions fail explicitly. Every daemon process receives a
 //! new [`ServiceInstanceId`]; the identity grants no authority and is not
@@ -10,8 +10,16 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use slotpilot_domain::{EventId, RequestId, ServiceInstanceId};
 use thiserror::Error;
 
-/// The only API version supported by this Phase 0 contract.
-pub const API_VERSION: u32 = 1;
+mod receive;
+
+pub use receive::*;
+
+/// Current API version. Version 2 adds receive-only station behavior.
+pub const API_VERSION: u32 = 2;
+/// Legacy Phase 0 API version retained for its original commands and fixtures.
+pub const LEGACY_API_VERSION: u32 = 1;
+/// Ordered service-supported versions.
+pub const SUPPORTED_API_VERSIONS: [u32; 2] = [API_VERSION, LEGACY_API_VERSION];
 
 /// Maximum number of version entries accepted in a negotiation request.
 pub const MAX_NEGOTIATION_VERSIONS: usize = 16;
@@ -53,6 +61,16 @@ pub enum EventPayload {
         /// Bounded human-readable marker with no control semantics.
         message: String,
     },
+    /// Receive lifecycle changed.
+    ReceiveLifecycle(ReceiveLifecycleSnapshot),
+    /// One durable receive record became observable.
+    ReceiveDecode(ReceiveRecordSummary),
+    /// Bounded current receive health.
+    ReceiveHealth(ReceiveHealthSnapshot),
+    /// Capture continuity was explicitly invalidated.
+    ReceiveDiscontinuity(ReceiveDiscontinuity),
+    /// One bounded, rate-limited waterfall frame.
+    WaterfallFrame(WaterfallFrame),
     /// Event kind unknown to this client version.
     ///
     /// Clients may display or record this value, but must not derive state
@@ -76,6 +94,21 @@ impl Serialize for EventPayload {
                 object.insert("kind".into(), "phase0_notice".into());
                 object.insert("message".into(), message.clone().into());
                 object
+            }
+            Self::ReceiveLifecycle(value) => {
+                event_object("receive_lifecycle", value).map_err(serde::ser::Error::custom)?
+            }
+            Self::ReceiveDecode(value) => {
+                event_object("receive_decode", value).map_err(serde::ser::Error::custom)?
+            }
+            Self::ReceiveHealth(value) => {
+                event_object("receive_health", value).map_err(serde::ser::Error::custom)?
+            }
+            Self::ReceiveDiscontinuity(value) => {
+                event_object("receive_discontinuity", value).map_err(serde::ser::Error::custom)?
+            }
+            Self::WaterfallFrame(value) => {
+                event_object("waterfall_frame", value).map_err(serde::ser::Error::custom)?
             }
             Self::Unknown { kind, fields } => {
                 let mut object = fields.clone();
@@ -104,11 +137,61 @@ impl<'de> Deserialize<'de> for EventPayload {
                 .ok_or_else(|| serde::de::Error::custom("phase0_notice requires string message"))?;
             return Ok(Self::Phase0Notice { message });
         }
-        Ok(Self::Unknown {
-            kind,
-            fields: object,
-        })
+        let known = serde_json::Value::Object(object.clone());
+        match kind.as_str() {
+            "receive_lifecycle" => serde_json::from_value(known)
+                .map(Self::ReceiveLifecycle)
+                .map_err(serde::de::Error::custom),
+            "receive_decode" => serde_json::from_value(known)
+                .map(Self::ReceiveDecode)
+                .map_err(serde::de::Error::custom),
+            "receive_health" => serde_json::from_value(known)
+                .map(Self::ReceiveHealth)
+                .map_err(serde::de::Error::custom),
+            "receive_discontinuity" => serde_json::from_value(known)
+                .map(Self::ReceiveDiscontinuity)
+                .map_err(serde::de::Error::custom),
+            "waterfall_frame" => serde_json::from_value(known)
+                .map(Self::WaterfallFrame)
+                .map_err(serde::de::Error::custom),
+            _ => Ok(Self::Unknown {
+                kind,
+                fields: object,
+            }),
+        }
     }
+}
+
+impl EventPayload {
+    /// Validates event-specific collection and text bounds before publication.
+    pub fn validate(&self) -> Result<(), WireBoundError> {
+        match self {
+            Self::Phase0Notice { message } if message.len() <= 512 => Ok(()),
+            Self::ReceiveLifecycle(_) | Self::ReceiveHealth(_) | Self::ReceiveDiscontinuity(_) => {
+                Ok(())
+            }
+            Self::ReceiveDecode(record) => record.validate(),
+            Self::WaterfallFrame(frame) => frame.validate(),
+            Self::Unknown { kind, fields }
+                if !kind.is_empty() && kind.len() <= 64 && fields.len() <= 64 =>
+            {
+                Ok(())
+            }
+            _ => Err(WireBoundError::Exceeded),
+        }
+    }
+}
+
+fn event_object<T: Serialize>(
+    kind: &str,
+    value: &T,
+) -> Result<serde_json::Map<String, serde_json::Value>, serde_json::Error> {
+    let mut object = match serde_json::to_value(value)? {
+        serde_json::Value::Object(object) => object,
+        _ => serde_json::Map::new(),
+    };
+    object.insert("kind".into(), kind.into());
+    Ok(object)
 }
 
 /// One bounded replay request.
@@ -212,6 +295,24 @@ pub enum Command {
         /// Opaque marker retained only in the original result.
         marker: String,
     },
+    /// Enumerate bounded input devices and exact configurations.
+    ListInputDevices,
+    /// Start receive on one exact stable identity/configuration.
+    ReceiveStart {
+        /// Explicit selection; no default or display-name fallback exists.
+        selection: ReceiveSelection,
+    },
+    /// Stop receive and release its input resources.
+    ReceiveStop,
+    /// Read current receive lifecycle and health.
+    GetReceiveStatus,
+    /// Query one bounded page of durable receive evidence.
+    QueryReceiveHistory {
+        /// Last global receive sequence already observed.
+        after_sequence: u64,
+        /// Requested page size.
+        limit: u16,
+    },
 }
 
 /// Whether a command is evaluated afresh or journaled for idempotent replay.
@@ -229,6 +330,9 @@ pub enum CanonicalizationError {
     /// A no-op marker exceeded the bounded wire contract.
     #[error("no-op marker must not exceed 128 bytes")]
     MarkerTooLong,
+    /// A receive selection or page request violated a documented bound.
+    #[error("receive command contains an invalid or unbounded value")]
+    InvalidReceiveCommand,
     /// Stable JSON serialization unexpectedly failed.
     #[error("failed to serialize canonical command: {0}")]
     Serialization(#[from] serde_json::Error),
@@ -239,8 +343,14 @@ impl Command {
     #[must_use]
     pub const fn class(&self) -> CommandClass {
         match self {
-            Self::GetCapabilities { .. } | Self::GetSnapshot => CommandClass::ReadOnly,
-            Self::NoopMutation { .. } => CommandClass::Mutating,
+            Self::GetCapabilities { .. }
+            | Self::GetSnapshot
+            | Self::ListInputDevices
+            | Self::GetReceiveStatus
+            | Self::QueryReceiveHistory { .. } => CommandClass::ReadOnly,
+            Self::NoopMutation { .. } | Self::ReceiveStart { .. } | Self::ReceiveStop => {
+                CommandClass::Mutating
+            }
         }
     }
 
@@ -253,6 +363,15 @@ impl Command {
             && marker.len() > 128
         {
             return Err(CanonicalizationError::MarkerTooLong);
+        }
+        match self {
+            Self::ReceiveStart { selection } => selection.validate()?,
+            Self::QueryReceiveHistory { limit, .. }
+                if *limit == 0 || *limit > MAX_RECEIVE_HISTORY_PAGE =>
+            {
+                return Err(CanonicalizationError::InvalidReceiveCommand);
+            }
+            _ => {}
         }
         Ok(serde_json::to_vec(self)?)
     }
@@ -293,6 +412,16 @@ pub enum ResultBody {
         /// Original marker, proving exact result replay.
         marker: String,
     },
+    /// Bounded input discovery results.
+    InputDevices(InputDevicePage),
+    /// Receive start completed.
+    ReceiveStarted(ReceiveLifecycleSnapshot),
+    /// Receive stop completed.
+    ReceiveStopped(ReceiveLifecycleSnapshot),
+    /// Current receive-only state and health.
+    ReceiveStatus(ReceiveStatus),
+    /// Bounded durable receive-history page.
+    ReceiveHistory(ReceiveHistoryPage),
 }
 
 /// Negotiated capabilities of the Phase 0 service.
@@ -306,6 +435,9 @@ pub struct Capabilities {
     pub service_instance_id: ServiceInstanceId,
     /// Explicitly unavailable live capabilities.
     pub station_control: Availability,
+    /// Receive-only input control, present in API version 2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receive_input: Option<Availability>,
     /// Explicitly unavailable transmit authority.
     pub transmit_authority: Availability,
 }
@@ -314,6 +446,8 @@ pub struct Capabilities {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Availability {
+    /// The capability is implemented in this API/service composition.
+    Available,
     /// The capability is not implemented or configured.
     Unavailable,
 }
@@ -329,6 +463,9 @@ pub struct StationSnapshot {
     pub configuration: ConfigurationState,
     /// Operating-session state.
     pub operation: OperationState,
+    /// Receive-only state, present in API version 2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receive: Option<ReceiveStatus>,
     /// Transmit authority state; Phase 0 is always unavailable.
     pub transmit_authority: Availability,
 }
@@ -374,6 +511,14 @@ pub enum ErrorCode {
     RequestIdConflict,
     /// A mutating command bypassed the required durable processor.
     RequestJournalRequired,
+    /// A version-1 envelope attempted a version-2 receive command.
+    CommandUnavailableInVersion,
+    /// Receive input or service is unavailable.
+    ReceiveUnavailable,
+    /// Receive is inhibited by typed health or continuity evidence.
+    ReceiveInhibited,
+    /// A receive command violated a documented bound.
+    InvalidReceiveRequest,
 }
 
 impl ErrorCode {
@@ -385,6 +530,10 @@ impl ErrorCode {
             Self::NegotiationTooLarge => "negotiation_too_large",
             Self::RequestIdConflict => "request_id_conflict",
             Self::RequestJournalRequired => "request_journal_required",
+            Self::CommandUnavailableInVersion => "command_unavailable_in_version",
+            Self::ReceiveUnavailable => "receive_unavailable",
+            Self::ReceiveInhibited => "receive_inhibited",
+            Self::InvalidReceiveRequest => "invalid_receive_request",
         }
     }
 }
@@ -411,6 +560,18 @@ pub enum ErrorDetails {
     RequestConflict,
     /// The in-process read-only seam received a mutating command.
     JournalRequired,
+    /// Command requires a newer negotiated version.
+    CommandVersion {
+        /// Minimum version containing the command.
+        minimum_version: u32,
+    },
+    /// Receive failure/inhibition details.
+    Receive {
+        /// Stable typed receive reason.
+        reason: ReceiveInhibitionKind,
+    },
+    /// A bounded receive value was invalid.
+    ReceiveRequest,
 }
 
 /// Failure constructing the in-process no-op service seam.
@@ -441,14 +602,14 @@ impl NoopService {
     #[must_use]
     pub fn execute(&self, envelope: CommandEnvelope) -> ResponseEnvelope {
         let request_id = envelope.request_id;
-        if envelope.api_version != API_VERSION {
+        if !SUPPORTED_API_VERSIONS.contains(&envelope.api_version) {
             return error_response(
                 request_id,
                 ErrorCode::IncompatibleApiVersion,
                 "client and service API versions are incompatible",
                 ErrorDetails::VersionMismatch {
                     requested_version: envelope.api_version,
-                    supported_versions: vec![API_VERSION],
+                    supported_versions: SUPPORTED_API_VERSIONS.to_vec(),
                 },
             );
         }
@@ -465,12 +626,18 @@ impl NoopService {
                             received_versions: supported_versions.len(),
                         },
                     })
-                } else if supported_versions.contains(&API_VERSION) {
+                } else if let Some(negotiated_version) = supported_versions
+                    .iter()
+                    .copied()
+                    .find(|version| SUPPORTED_API_VERSIONS.contains(version))
+                {
                     ResponseOutcome::Success(ResultBody::Capabilities(Capabilities {
-                        negotiated_version: API_VERSION,
-                        supported_versions: vec![API_VERSION],
+                        negotiated_version,
+                        supported_versions: SUPPORTED_API_VERSIONS.to_vec(),
                         service_instance_id: self.instance_id.clone(),
                         station_control: Availability::Unavailable,
+                        receive_input: (negotiated_version >= API_VERSION)
+                            .then_some(Availability::Unavailable),
                         transmit_authority: Availability::Unavailable,
                     }))
                 } else {
@@ -480,7 +647,7 @@ impl NoopService {
                         retryable: false,
                         details: ErrorDetails::VersionMismatch {
                             requested_version: envelope.api_version,
-                            supported_versions: vec![API_VERSION],
+                            supported_versions: SUPPORTED_API_VERSIONS.to_vec(),
                         },
                     })
                 }
@@ -494,6 +661,8 @@ impl NoopService {
                     },
                     configuration: ConfigurationState::NotConfigured,
                     operation: OperationState::NotRunning,
+                    receive: (envelope.api_version >= API_VERSION)
+                        .then_some(ReceiveStatus::stopped()),
                     transmit_authority: Availability::Unavailable,
                 }))
             }
@@ -503,10 +672,32 @@ impl NoopService {
                 retryable: false,
                 details: ErrorDetails::JournalRequired,
             }),
+            Command::ListInputDevices
+            | Command::ReceiveStart { .. }
+            | Command::ReceiveStop
+            | Command::GetReceiveStatus
+            | Command::QueryReceiveHistory { .. } => ResponseOutcome::Error(ApiError {
+                code: if envelope.api_version < API_VERSION {
+                    ErrorCode::CommandUnavailableInVersion
+                } else {
+                    ErrorCode::ReceiveUnavailable
+                },
+                message: "receive commands require the daemon receive service".into(),
+                retryable: false,
+                details: if envelope.api_version < API_VERSION {
+                    ErrorDetails::CommandVersion {
+                        minimum_version: API_VERSION,
+                    }
+                } else {
+                    ErrorDetails::Receive {
+                        reason: ReceiveInhibitionKind::ServiceUnavailable,
+                    }
+                },
+            }),
         };
 
         ResponseEnvelope {
-            api_version: API_VERSION,
+            api_version: envelope.api_version,
             request_id,
             outcome,
         }

@@ -26,6 +26,9 @@ fn command_fixtures_are_stable() {
     assert_fixture_round_trip::<CommandEnvelope>(include_str!(
         "fixtures/noop-mutation-command.json"
     ));
+    assert_fixture_round_trip::<CommandEnvelope>(include_str!(
+        "fixtures/receive-start-command.json"
+    ));
 }
 
 #[test]
@@ -43,11 +46,19 @@ fn response_fixtures_are_stable() {
     assert_fixture_round_trip::<ResponseEnvelope>(include_str!(
         "fixtures/request-id-conflict-error.json"
     ));
+    assert_fixture_round_trip::<ResponseEnvelope>(include_str!(
+        "fixtures/receive-status-response.json"
+    ));
+    assert_fixture_round_trip::<ResponseEnvelope>(include_str!(
+        "fixtures/receive-history-response.json"
+    ));
 }
 
 #[test]
 fn event_and_subscription_fixtures_are_stable() {
     assert_fixture_round_trip::<EventEnvelope>(include_str!("fixtures/event-envelope.json"));
+    assert_fixture_round_trip::<EventEnvelope>(include_str!("fixtures/receive-decode-event.json"));
+    assert_fixture_round_trip::<EventEnvelope>(include_str!("fixtures/waterfall-event.json"));
     assert_fixture_round_trip::<SubscriptionRequest>(include_str!(
         "fixtures/subscription-request.json"
     ));

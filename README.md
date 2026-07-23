@@ -23,14 +23,16 @@ All clients use the same versioned command/event API. No capability should exist
 > deterministically align and resample those owned batches into canonical FT8
 > windows. A receive-only clock gate rejects stale, jumped, delayed, or
 > misaligned mappings. A pure bounded spectrum/waterfall model derives
-> rate-limited owned rows from canonical samples without a renderer or wire
-> schema. SQLite schema version 2 can atomically retain bounded receive-window,
-> diagnostic, and exact FT8 classification evidence without raw PCM or
-> waterfall rows. These pieces are not yet composed into the daemon and
-> perform no live decode. No audio output, radio, PTT, logging, transmit, WSPR,
-> or desktop behavior is available; live station capability remains
-> unavailable. Do not treat the repository or its unsigned local artifacts as
-> safe for on-air use.
+> rate-limited owned rows from canonical samples. SQLite schema version 2
+> retains bounded receive-window, diagnostic, and exact FT8 classification
+> evidence without raw PCM or waterfall rows. `slotpilotd` now composes these
+> receive-only pieces behind an explicit inactive-by-default lifecycle, and
+> API version 2 plus the CLI expose bounded discovery, control, status,
+> history, event, and JSONL routes. Ordinary tests use fakes/replay and open no
+> physical input. No audio output, radio, PTT, logging, transmit, WSPR, or
+> desktop behavior is available; transmit capability remains unavailable. Do
+> not treat the repository or its unsigned
+> local artifacts as safe for on-air use.
 
 ## Product direction
 
@@ -75,10 +77,10 @@ A contributor or coding agent should read these files in order:
 7. [`docs/roadmap.md`](docs/roadmap.md)
 8. [`docs/backlog/phase-0.md`](docs/backlog/phase-0.md)
 
-The repository is intentionally free of live station behavior beyond the local
-no-op API, persistence/test seams, offline FT8 library harness, and isolated
-receive-input adapter. An assigned issue should create only the narrow slice it
-owns and preserve the documented boundaries.
+The repository's only live station boundary is explicit receive-only input
+owned by the daemon; ordinary CI never opens it. There is no output, rig, PTT,
+authority, scheduling, QSO, WSPR, or RF path. An assigned issue should create
+only the narrow slice it owns and preserve the documented boundaries.
 
 Phase 0 is complete; its durable implementation record is
 [tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). Phase 1's
