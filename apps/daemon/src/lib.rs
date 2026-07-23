@@ -553,6 +553,8 @@ mod tests {
                 .outcome,
             SubscriptionOutcome::IncompatibleGeneration { .. }
         ));
+        drop(reopened);
+        drop(restarted);
         fs::remove_file(path).unwrap();
     }
 
