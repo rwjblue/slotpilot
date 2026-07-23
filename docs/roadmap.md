@@ -30,13 +30,18 @@ requirements.
 
 ## Current status
 
-**Phase 0: workspace and contracts — complete. Phase 1 has not started.**
+**Phase 0: workspace and contracts — complete. Phase 1: offline FT8 protocol
+harness — complete. Phase 2 has not started.**
 
 The repository contains the no-op daemon/CLI handshake, typed contracts,
 deterministic test seams, local IPC, initial storage, and complete CI
 foundation tracked by
-[Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1). It has no
-radio, audio, protocol, logging, desktop, or transmit implementation.
+[Phase 0 tracker #1](https://github.com/rwjblue/slotpilot/issues/1). The
+[Phase 1 tracker #16](https://github.com/rwjblue/slotpilot/issues/16) records
+the owned offline FT8 contract, reviewed dependency/fixtures, message adapter,
+PCM synthesis, WAV decode, and bounded conformance evidence. The repository has
+no live audio or protocol event path, radio, logging, desktop, WSPR, or transmit
+implementation.
 
 ## Phase 0 — workspace and contracts
 
@@ -65,6 +70,10 @@ See `backlog/phase-0.md` for issue-ready tasks.
 
 ## Phase 1 — offline FT8 protocol harness
 
+Status: complete. Compatibility is limited to the reviewed v1 message and
+recording matrix; completion does not claim general WSJT-X/JTDX parity or any
+on-air capability.
+
 Goal: validate FT8 protocol behavior without live audio or radio control.
 
 Deliverables:
@@ -89,6 +98,8 @@ WSPR without exposing dependency types or replacing client contracts.
 
 ## Phase 2 — receive-only FT8 station
 
+Status: not started and not authorized by Phase 1 completion.
+
 Goal: observe live FT8 safely through portable audio and time boundaries.
 
 Deliverables:
@@ -110,6 +121,16 @@ Exit criteria:
 - no transmit path exists.
 
 WSPR live receive is deferred to Phase 8.
+
+Phase 2 entry was reviewed at the Phase 1 closeout. Its required boundaries are
+already explicit: daemon-only hardware ownership, portable stable input-device
+identity, allocation-free/nonblocking callbacks, bounded queues, deterministic
+resampling and timestamped window alignment, clock-health diagnostics,
+receive-only API/CLI events and persistence, device-loss failure without
+fallback, and no transmit path. No additional product, safety, licensing,
+wire-schema, durable-schema, or architecture decision was discovered during
+Phase 1. Implementation still requires an approved tracker and focused issues;
+this review creates no authorization or readiness label.
 
 ## Phase 3 — primary rig profile and read-only control
 

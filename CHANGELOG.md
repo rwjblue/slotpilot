@@ -11,6 +11,11 @@ make no compatibility promise beyond the reviewed schema and wire fixtures.
 - Added user-scoped local IPC, durable idempotency, initial SQLite storage,
   deterministic time seams, and hardware-free test ports.
 - Added an unsigned local development build and no-op handshake workflow.
+- Added the bounded Phase 1 offline FT8 harness: owned typed outcomes, exact
+  reviewed protocol dependency, redistributable fixtures, message conformance,
+  deterministic PCM synthesis, bounded RIFF/WAVE parsing, and reproducible
+  static-recording decode.
 
-RF operation is unavailable. This version cannot operate a radio and has no
-audio, FT8, WSPR, logging, station-control, transmit, or desktop behavior.
+RF operation is unavailable. Offline FT8 library tests do not provide live
+audio or station behavior. This version cannot operate a radio and has no
+audio-device, WSPR, logging, station-control, transmit, or desktop behavior.

@@ -13,10 +13,12 @@ The intended system has one hardware-owning daemon and two first-party clients:
 All clients use the same versioned command/event API. No capability should exist only in the GUI.
 
 > [!IMPORTANT]
-> This repository contains a Phase 0 development-only no-op daemon/CLI
-> handshake and contract test foundation. RF, radio control, audio, FT8, WSPR,
-> logging, transmit, and desktop behavior are unavailable. Do not treat the
-> repository or its unsigned local artifacts as safe for on-air use.
+> This repository contains the Phase 0 local service foundation and the Phase 1
+> offline FT8 protocol harness. Static/in-memory FT8 messages, waveforms, and
+> reviewed WAV fixtures can be processed in tests, but no audio device,
+> microphone, radio, PTT, live receive, logging, transmit, WSPR, or desktop
+> behavior is available; live station capability remains unavailable. Do not
+> treat the repository or its unsigned local artifacts as safe for on-air use.
 
 ## Product direction
 
@@ -61,16 +63,21 @@ A contributor or coding agent should read these files in order:
 7. [`docs/roadmap.md`](docs/roadmap.md)
 8. [`docs/backlog/phase-0.md`](docs/backlog/phase-0.md)
 
-The repository is intentionally free of live station behavior beyond local
-no-op API, persistence, and test seams. An assigned issue should create only
-the narrow slice it owns and preserve the documented boundaries.
+The repository is intentionally free of live station behavior beyond the local
+no-op API, persistence/test seams, and offline FT8 library harness. An assigned
+issue should create only the narrow slice it owns and preserve the documented
+boundaries.
 
 Phase 0 is complete; its durable implementation record is
-[tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). Phase 1
-begins the FT8-only critical path to the contact-capable alpha and FT8 MVP
-defined in [`docs/roadmap.md`](docs/roadmap.md). WSPR remains planned after the
-FT8 MVP. GitHub issues are the durable execution contracts; roadmap and backlog
-documents describe sequencing and stable acceptance themes.
+[tracking issue #1](https://github.com/rwjblue/slotpilot/issues/1). Phase 1's
+bounded offline FT8 work is tracked by
+[issue #16](https://github.com/rwjblue/slotpilot/issues/16). It establishes
+owned message classifications, the exact reviewed protocol dependency,
+redistributable fixtures, deterministic in-memory synthesis, bounded
+RIFF/WAVE parsing, and reproducible offline decode. This is protocol evidence,
+not a station feature. Phase 2 live receive remains unimplemented and requires
+its own focused tracker and explicit handoff. WSPR remains planned after the
+FT8 MVP.
 
 ## Validation
 

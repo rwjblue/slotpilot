@@ -2,6 +2,14 @@
 
 This document defines invariants. Implementations may add stricter behavior but may not weaken these rules without an accepted architecture decision and explicit review.
 
+## Current capability boundary
+
+Phase 1 produces and inspects FT8 bits, in-memory PCM, and static RIFF/WAVE
+files only. Those artifacts are not transmit plans, operating authority,
+live-device buffers, or evidence of safe on-air behavior. No audio device,
+radio, PTT owner, scheduler, station API mutation, or automatic QSO transition
+exists in the current implementation.
+
 ## Authority
 
 Transmission requires an explicit operator arm tied to:

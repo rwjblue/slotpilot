@@ -16,6 +16,7 @@ const AUTHORITATIVE_ROUND_TRIPS: &[&str] = &[
     "ordinary-roger-report",
     "ordinary-rrr",
     "ordinary-73",
+    "ordinary-rr73",
     "special-compound-cq",
 ];
 

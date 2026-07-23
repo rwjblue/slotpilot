@@ -74,11 +74,15 @@ When explicitly handed a GitHub issue:
 
 ## Current repository state
 
-Phase 0 is complete. The repository has a development-only no-op daemon/CLI
-handshake, versioned API contracts, local IPC, deterministic time and hardware
-test seams, initial SQLite durability, and the complete repository gate. There
-is deliberately no live station, FT8/WSPR protocol, audio-device, rig-control,
-logging, transmit, or desktop behavior yet. Do not create broad speculative
+Phases 0 and 1 are complete. The repository has a development-only no-op
+daemon/CLI handshake, versioned API contracts, local IPC, deterministic time
+and hardware test seams, initial SQLite durability, and the complete repository
+gate. `slotpilot-protocol` also has a bounded offline FT8-only harness:
+SlotPilot-owned message outcomes, an exact private dependency adapter, reviewed
+fixtures, deterministic in-memory PCM synthesis, bounded RIFF/WAVE parsing,
+and reproducible static-recording decode. There is deliberately no live audio,
+station FT8 command/event path, WSPR protocol, audio-device, rig-control,
+logging, transmit, or desktop behavior. Do not create broad speculative
 implementations in an orientation task.
 
 An implementation pull request should be narrow, reviewable, and tied to one
@@ -183,12 +187,14 @@ For any change related to transmit scheduling, PTT, rig mutation, audio output, 
 ## Assignment source
 
 Phase 0's completed implementation record is
-[tracker #1](https://github.com/rwjblue/slotpilot/issues/1). New implementation
-must use focused issues linked from the active phase tracker. Phase 1 is the
-offline FT8 protocol harness defined in `docs/roadmap.md`; it is not authorized
-until its tracker and focused issues exist. A downstream issue may begin only
-after its dependencies have landed, its contract has been revalidated, and the
-user explicitly hands it off.
+[tracker #1](https://github.com/rwjblue/slotpilot/issues/1), and Phase 1's is
+[tracker #16](https://github.com/rwjblue/slotpilot/issues/16). New
+implementation must use focused issues linked from the active phase tracker.
+Phase 2 receive-only work is not authorized by Phase 1 completion; it requires
+its own tracker, bounded focused issues, landed prerequisites, revalidation,
+and explicit user handoff. A downstream issue may begin only after its
+dependencies have landed, its contract has been revalidated, and the user
+explicitly hands it off.
 
 ## Definition of done
 

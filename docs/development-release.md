@@ -20,7 +20,7 @@ mise run ci
 mise run build-dev
 ```
 
-`handshake` starts the daemon in one-request Phase 0 mode, asks the CLI for its
+`handshake` starts the daemon in one-request development mode, asks the CLI for its
 no-op snapshot, and exits. The expected status is `not_configured`,
 `not_running`, and unavailable transmit authority.
 
@@ -30,7 +30,9 @@ SQLite schema compatibility. `build-dev` creates `target/slotpilot-dev/`
 containing the two debug binaries and `DEVELOPMENT-ONLY.txt`.
 
 The local artifact is unsigned, unnotarized, unpublished, and unsuitable for
-distribution or on-air use. It has no radio, audio, FT8, WSPR, logging,
-station-control, transmit, or desktop capability. No credential, physical
-radio, audio interface, antenna, network service, signing identity, or operator
-transmission is used by these workflows.
+distribution or on-air use. The workspace includes a library-only offline FT8
+test harness, but the built daemon and CLI expose no FT8 station command,
+microphone or audio-device access, radio, WSPR, logging, station control,
+transmit, or desktop capability. No credential, physical radio, audio
+interface, antenna, network service, signing identity, or operator transmission
+is used by these workflows.

@@ -10,7 +10,7 @@ use mfsk_core::ft8::{
 use mfsk_core::msg::{
     CallsignHashTable,
     hash_table::ihashcall,
-    wsjt77::{pack77, pack77_type4, unpack77_with_hash},
+    wsjt77::{pack77, pack77_type1, pack77_type4, unpack77_with_hash},
 };
 use slotpilot_domain::FullCallsign;
 
@@ -246,7 +246,11 @@ impl OfflineFt8Codec {
                         .is_some_and(|expected| same_identity(recipient, expected))
                     && payload_matches(class, payload) =>
             {
-                pack77(sender, recipient, payload)
+                if class == Ft8MessageClass::DirectedGrid {
+                    pack77_type1(sender, recipient, payload)
+                } else {
+                    pack77(sender, recipient, payload)
+                }
             }
             _ => {
                 return Err(not_representable(
@@ -473,7 +477,15 @@ fn normalize_standard_report(text: String) -> String {
 }
 
 fn payload_matches(class: Ft8MessageClass, payload: &str) -> bool {
-    classify_payload(payload) == Some(class)
+    match class {
+        Ft8MessageClass::DirectedGrid => is_grid(payload),
+        Ft8MessageClass::SignalReport => is_report(payload),
+        Ft8MessageClass::RogerSignalReport => payload.strip_prefix('R').is_some_and(is_report),
+        Ft8MessageClass::Roger => payload == "RRR",
+        Ft8MessageClass::Ending73 => payload == "73",
+        Ft8MessageClass::EndingRr73 => payload == "RR73",
+        Ft8MessageClass::GeneralCall => false,
+    }
 }
 
 fn is_grid(value: &str) -> bool {

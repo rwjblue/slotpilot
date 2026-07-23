@@ -132,3 +132,12 @@ if find target/doc/slotpilot_protocol \
   echo "dependency-specific terminology leaked into public protocol rustdoc" >&2
   exit 1
 fi
+
+if rg --line-number \
+  'std::process|std::net|Command::new|cpal|hamlib|rigctld|serialport' \
+  crates/protocol/src \
+  crates/protocol/tests \
+  --glob '*.rs'; then
+  echo "offline protocol code gained an external process, network, device, or rig path" >&2
+  exit 1
+fi
