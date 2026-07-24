@@ -988,6 +988,7 @@ mod tests {
                 ..
             }))
         ));
+        drop(restarted);
         std::fs::remove_file(path).unwrap();
     }
 
