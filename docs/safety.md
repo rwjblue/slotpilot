@@ -14,8 +14,15 @@ validation must use only RF-free known audio or loopback.
 
 These artifacts and receive buffers are not transmit plans, operating
 authority, or evidence of safe on-air behavior. No audio output, radio,
-rig-control, PTT owner, transmit scheduler, transmit authority, or automatic
-QSO transition exists in the current implementation.
+rig-control adapter, PTT owner, transmit scheduler, transmit authority, or
+automatic QSO transition exists in the current implementation.
+
+Phase 3.1 adds read-only profile, capability, observation, validation, and fake
+contracts only. Its consumer-owned rig port has no setter, raw-command, PTT, or
+unkey method. Optional PTT readback is evidence, never control. The reserved
+rig crate contains no process, network, serial, Hamlib, or physical-radio
+implementation. Managed profiles require a distinct loopback service endpoint;
+the later lifecycle adapter must force PTT type `NONE`.
 
 ## Authority
 

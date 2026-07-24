@@ -131,6 +131,17 @@ The test kit provides deterministic implementations that can inject:
 - clipping, overrun, underrun, and callback delay;
 - sample-clock drift and latency changes.
 
+The Phase 3 `FakeReadOnlyRig` replaces the Phase 0 mutation-oriented fake. Its
+fixed 64-step script accepts only connect, capability-probe, and read results
+and is driven by `VirtualClock`. Tests cover normal and partial capability
+evidence, disconnect, timeout, stale paired UTC/monotonic evidence,
+contradictory readback, unsupported getters, malformed responses, unexpected
+changes, explicit reconnect, connection-generation changes, and script
+overflow without sleeping or accessing hardware. Missing power and PTT
+readback remain explicit unavailable/unsupported values rather than zero or
+false. No fake method can apply rig state, send raw CAT, key or unkey PTT, open
+audio output, grant authority, or schedule RF.
+
 `slotpilot-audio` owns receive device identity, configuration, generation,
 source-frame position, UTC/monotonic mapping, bounded batch, canonical FT8
 window, health, discontinuity, and fault values without exposing dependency

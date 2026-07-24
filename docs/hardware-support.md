@@ -34,12 +34,24 @@ Hamlib capability claims are necessary but not sufficient. Profile setup records
 
 ## Elecraft K4
 
-Initial path:
+Designated Phase 3/5/6 primary path:
 
-- Hamlib K4 backend through persistent `rigctld`;
-- selectable USB or other operator-chosen audio path;
-- CAT PTT by default;
-- capability probing for mode, frequency, power, split, and state readback.
+- Hamlib model 2047 K4 backend through persistent `rigctld`;
+- K4 CAT over Ethernet at an explicit operator-configured downstream
+  `host:port`, with no discovery, implicit port, default, or fallback;
+- a separate explicit `rigctld` service `host:port`;
+- managed service binding only to a loopback IP literal with PTT type forced
+  to `NONE`;
+- external service mode remaining read-only at the SlotPilot boundary;
+- K4 built-in USB sound-card receive input selected independently by stable
+  Phase 2 audio identity;
+- capability probing for frequency, radio modulation/passband, VFO, split,
+  optional power, and optional PTT evidence.
+
+Ethernet audio streaming, rig mutation, raw CAT, PTT control, and audio output
+are not part of Phase 3. A missing K4 endpoint or CAT port is a profile error,
+not permission to guess from WSJT-X, Elecraft remote-stream conventions, DNS,
+another endpoint, or a hardcoded value.
 
 A direct K4 command adapter is permitted only for a documented Hamlib gap and must remain behind the same rig and safety interfaces.
 

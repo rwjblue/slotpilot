@@ -7,11 +7,11 @@
 
 mod ports;
 mod receive_clock;
+mod rig;
 mod time;
 
 pub use ports::{
-    EmergencyUnkeyError, ProtocolPort, ReceiveAudioPort, RigCommand, RigFault, RigPort, RigState,
-    TransmitSupervisorPort, TxInhibition,
+    EmergencyUnkeyError, ProtocolPort, ReceiveAudioPort, TransmitSupervisorPort, TxInhibition,
 };
 pub use receive_clock::{
     ClockGatedTimelineEvent, ClockProcessGeneration, DEFAULT_CLOCK_FRESHNESS_MILLIS,
@@ -21,6 +21,15 @@ pub use receive_clock::{
     ReceiveClockDriver, ReceiveClockError, ReceiveClockFault, ReceiveClockMonitor,
     ReceiveClockPoll, ReceiveClockSnapshot, ReceiveClockSource, ReceiveClockState,
     ReceiveClockTransition, ReceiveWindowAlignment, SystemClock,
+};
+pub use rig::{
+    MAX_RIG_CAPABILITIES, MAX_RIG_VALIDATION_FINDINGS, ReadOnlyRigPort, RigCapability,
+    RigCapabilityEvidence, RigCapabilityReport, RigCapabilityStatus, RigConnectionGeneration,
+    RigContractError, RigFault, RigFaultKind, RigFreshnessPolicy, RigLifecycleState,
+    RigObservation, RigObservationAge, RigObservationFields, RigObservationProvenance,
+    RigObservationSequence, RigObservationTimestamp, RigObservedField, RigOperation,
+    RigProfileValidation, RigReadback, RigValidationDisposition, RigValidationFinding,
+    validate_profile_capabilities,
 };
 pub use time::{
     Clock, ClockFault, ClockHealth, ClockMonitor, ClockSample, MonotonicDeadline, MonotonicInstant,

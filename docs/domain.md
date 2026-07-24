@@ -32,6 +32,24 @@ stable wire names.
 selected mode: 15 seconds for FT8 and 120 seconds for WSPR. It describes a
 boundary only; it grants no scheduling or transmit authority.
 
+Radio-side modulation is a separate closed type from synchronized
+`OperatingMode`; FT8 therefore cannot be passed where a rig modulation is
+required. Passband width uses checked integer hertz. Exact VFO and split
+readback preserve an absent transmit VFO instead of inventing one.
+
+The Phase 3 read-only rig profile retains an immutable profile revision,
+nonzero Hamlib model, bounded exact Hamlib version expectation, required radio
+modulation/passband, and two structurally distinct endpoint types:
+
+- the exact operator-configured downstream radio CAT `host:port`;
+- the separate exact `rigctld` service `host:port`.
+
+Neither endpoint type performs discovery, name resolution, implicit-port
+selection, or fallback. Managed `rigctld` profiles require a loopback IP
+literal for the service endpoint and expose no configurable PTT method; the
+later lifecycle adapter must force PTT type `NONE`. The K4 model identifier
+2047 is a profile value, not a public radio-specific type or default.
+
 The reviewed display and JSON examples live beside the types as unit-test
 fixtures. Domain parsing returns typed `thiserror` errors and has no GUI,
 database, protocol-library, audio, or rig dependency.

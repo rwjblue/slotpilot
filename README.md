@@ -29,7 +29,9 @@ All clients use the same versioned command/event API. No capability should exist
 > receive-only pieces behind an explicit inactive-by-default lifecycle, and
 > API version 2 plus the CLI expose bounded discovery, control, status,
 > history, event, and JSONL routes. Ordinary tests use fakes/replay and open no
-> physical input. No audio output, radio, PTT, logging, transmit, WSPR, or
+> physical input. Phase 3.1 adds owned read-only rig/profile contracts and
+> bounded deterministic fakes, but no rig process, network, serial, or
+> physical-radio adapter. No audio output, PTT, logging, transmit, WSPR, or
 > desktop behavior is available; transmit capability remains unavailable. Do
 > not treat the repository or its unsigned
 > local artifacts as safe for on-air use.
@@ -78,7 +80,8 @@ A contributor or coding agent should read these files in order:
 8. [`docs/backlog/phase-0.md`](docs/backlog/phase-0.md)
 
 The repository's only live station boundary is explicit receive-only input
-owned by the daemon; ordinary CI never opens it. There is no output, rig, PTT,
+owned by the daemon; ordinary CI never opens it. Read-only rig vocabulary and
+fakes cannot connect to hardware. There is no output, rig adapter, PTT,
 authority, scheduling, QSO, WSPR, or RF path. An assigned issue should create
 only the narrow slice it owns and preserve the documented boundaries.
 

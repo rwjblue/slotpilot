@@ -1,67 +1,9 @@
 //! Consumer-owned ports for future hardware and protocol adapters.
 
 use slotpilot_audio::{CaptureBatch, InputFault, InputHealth};
-use slotpilot_domain::{DialFrequency, OperatingMode, Power, TransmissionId};
+use slotpilot_domain::TransmissionId;
 use slotpilot_protocol::{Ft8Decode, Ft8WaveformError, Ft8WaveformRequest, PcmBuffer};
 use thiserror::Error;
-
-/// Snapshot of verified rig state using only SlotPilot-owned values.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RigState {
-    /// Verified dial frequency.
-    pub dial_frequency: DialFrequency,
-    /// Verified synchronized operating mode.
-    pub mode: OperatingMode,
-    /// Verified configured power.
-    pub power: Power,
-    /// Whether PTT readback is asserted.
-    pub ptt_asserted: bool,
-}
-
-/// Narrow Phase 0 rig command vocabulary.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RigCommand {
-    /// Request a dial frequency; a future adapter must verify readback.
-    SetDialFrequency(DialFrequency),
-    /// Request a mode; a future adapter must verify readback.
-    SetMode(OperatingMode),
-}
-
-/// Typed rig failures required by operations fault handling.
-#[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum RigFault {
-    /// The rig connection is unavailable.
-    #[error("rig disconnected")]
-    Disconnected,
-    /// Readback is older than the caller's freshness requirement.
-    #[error("rig readback is stale")]
-    StaleReadback,
-    /// Readback conflicts with the requested state.
-    #[error("rig readback contradicts requested state")]
-    ContradictoryReadback {
-        /// State requested by operations.
-        expected: RigState,
-        /// State reported by the adapter.
-        observed: RigState,
-    },
-    /// The adapter rejected a command without applying it.
-    #[error("rig command rejected")]
-    CommandRejected,
-    /// The rig moved outside a SlotPilot request.
-    #[error("rig moved unexpectedly")]
-    UnexpectedMovement(RigState),
-    /// PTT remains asserted after an unkey request.
-    #[error("rig PTT remains asserted")]
-    PttStuck,
-}
-
-/// Rig-control boundary consumed by operations.
-pub trait RigPort {
-    /// Returns verified current state or a typed failure.
-    fn read_state(&mut self) -> Result<RigState, RigFault>;
-    /// Applies one narrow command and returns verified resulting state.
-    fn apply(&mut self, command: RigCommand) -> Result<RigState, RigFault>;
-}
 
 /// Receive-only audio boundary consumed by operations outside the callback.
 pub trait ReceiveAudioPort {

@@ -8,6 +8,7 @@
 mod callsign;
 mod ids;
 mod radio;
+mod rig;
 
 pub use callsign::{
     BaseCallsign, CallsignError, FullCallsign, OperatorCallsign, OwnerCallsign, StationCallsign,
@@ -18,4 +19,8 @@ pub use ids::{
 };
 pub use radio::{
     AudioFrequency, Band, DialFrequency, OperatingMode, Power, RadioValueError, UtcSlot,
+};
+pub use rig::{
+    DownstreamRigEndpoint, HamlibModelId, HamlibVersionExpectation, RadioModulation, RadioPassband,
+    RigProfile, RigProfileError, RigVfo, RigctldMode, RigctldServiceEndpoint, SplitReadback,
 };

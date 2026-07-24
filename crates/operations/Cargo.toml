@@ -11,7 +11,11 @@ version.workspace = true
 slotpilot-audio.workspace = true
 slotpilot-domain.workspace = true
 slotpilot-protocol.workspace = true
+serde.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
 
 [lints]
 workspace = true

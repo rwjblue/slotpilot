@@ -42,9 +42,11 @@ An activation profile overrides appropriate station-location values without repl
 
 Describes control and verification:
 
-- Hamlib model and version expectations;
-- managed or external `rigctld` endpoint;
-- serial or network endpoint;
+- immutable profile revision identity;
+- nonzero Hamlib model and bounded exact version expectations;
+- managed or external `rigctld` mode;
+- an exact downstream radio CAT network `host:port`;
+- a structurally distinct exact `rigctld` service `host:port`;
 - baud and transport settings;
 - PTT method: CAT, RTS, DTR, or a later verified method;
 - required digital mode and passband;
@@ -53,6 +55,19 @@ Describes control and verification:
 - power limits;
 - expected meter and state-readback capabilities;
 - radio-specific quirks.
+
+Phase 3 designates the Elecraft K4 Ethernet CAT path through Hamlib model 2047.
+The K4 host/IP and TCP port are both explicit operator input. SlotPilot does
+not discover, infer, default, hardcode, or fall back to either value. In
+managed mode the separate service endpoint must be a loopback IP literal and
+the later lifecycle adapter must force `--ptt-type=NONE`; no PTT method is
+configurable in the read-only contract. External mode also requires an exact
+service endpoint and remains read-only at the SlotPilot boundary.
+
+The K4 built-in USB sound-card input remains an independently selected stable
+identity in the audio profile. It is not derived from either rig endpoint, and
+a display name cannot select it. Ethernet audio streaming is outside the
+current architecture and Phase 3 scope.
 
 ## Audio profile
 

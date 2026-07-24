@@ -942,6 +942,8 @@ dependencies = [
 name = "slotpilot-operations"
 version = "0.1.0-dev.0"
 dependencies = [
+ "serde",
+ "serde_json",
  "slotpilot-audio",
  "slotpilot-domain",
  "slotpilot-protocol",
@@ -958,6 +960,14 @@ dependencies = [
  "sha2",
  "slotpilot-domain",
  "thiserror 2.0.19",
+]
+
+[[package]]
+name = "slotpilot-rig"
+version = "0.1.0-dev.0"
+dependencies = [
+ "slotpilot-domain",
+ "slotpilot-operations",
 ]
 
 [[package]]
@@ -979,6 +989,7 @@ dependencies = [
  "slotpilot-domain",
  "slotpilot-operations",
  "slotpilot-protocol",
+ "thiserror 2.0.19",
 ]
 
 [[package]]

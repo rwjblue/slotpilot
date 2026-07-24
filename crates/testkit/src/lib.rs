@@ -6,53 +6,230 @@
 use std::collections::VecDeque;
 
 use slotpilot_audio::{CaptureBatch, InputFault, InputHealth};
-use slotpilot_domain::TransmissionId;
+use slotpilot_domain::{ProfileRevisionId, RigProfile, TransmissionId};
 use slotpilot_operations::{
-    EmergencyUnkeyError, ProtocolPort, ReceiveAudioPort, RigCommand, RigFault, RigPort, RigState,
-    TransmitSupervisorPort, TxInhibition,
+    Clock, EmergencyUnkeyError, ProtocolPort, ReadOnlyRigPort, ReceiveAudioPort,
+    RigCapabilityReport, RigConnectionGeneration, RigFault, RigFreshnessPolicy, RigLifecycleState,
+    RigObservation, RigObservationAge, TransmitSupervisorPort, TxInhibition, VirtualClock,
 };
 use slotpilot_protocol::{Ft8Decode, Ft8WaveformError, Ft8WaveformRequest, PcmBuffer, PcmError};
+use thiserror::Error;
 
-/// Deterministic in-memory rig port.
+/// Maximum scripted calls retained by one deterministic rig fake.
+pub const MAX_FAKE_RIG_STEPS: usize = 64;
+
+/// Failure scripting the bounded deterministic rig fake.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+pub enum FakeRigScriptError {
+    /// The fixed script bound was reached.
+    #[error("fake rig script exceeds its fixed bound")]
+    ScriptFull,
+}
+
 #[derive(Debug, Clone)]
-pub struct FakeRig {
-    state: RigState,
-    faults: VecDeque<RigFault>,
+enum FakeRigStep {
+    Connect(Result<RigConnectionGeneration, RigFault>),
+    Probe(Result<RigCapabilityReport, RigFault>),
+    Read(Result<RigObservation, RigFault>),
 }
 
-impl FakeRig {
-    /// Creates a fake with one initial verified state.
+/// Deterministic in-memory read-only rig port with injected time.
+#[derive(Debug, Clone)]
+pub struct FakeReadOnlyRig {
+    clock: VirtualClock,
+    lifecycle: RigLifecycleState,
+    profile_revision_id: Option<ProfileRevisionId>,
+    steps: VecDeque<FakeRigStep>,
+}
+
+impl FakeReadOnlyRig {
+    /// Creates a disconnected fake driven by the supplied virtual clock.
     #[must_use]
-    pub fn new(state: RigState) -> Self {
+    pub fn new(clock: VirtualClock) -> Self {
         Self {
-            state,
-            faults: VecDeque::new(),
+            clock,
+            lifecycle: RigLifecycleState::Disconnected,
+            profile_revision_id: None,
+            steps: VecDeque::new(),
         }
     }
 
-    /// Queues one failure for the next operation.
-    pub fn inject(&mut self, fault: RigFault) {
-        self.faults.push_back(fault);
+    /// Queues one deterministic connect result.
+    pub fn queue_connect(
+        &mut self,
+        result: Result<RigConnectionGeneration, RigFault>,
+    ) -> Result<(), FakeRigScriptError> {
+        self.push(FakeRigStep::Connect(result))
+    }
+
+    /// Queues one deterministic capability-probe result.
+    pub fn queue_probe(
+        &mut self,
+        result: Result<RigCapabilityReport, RigFault>,
+    ) -> Result<(), FakeRigScriptError> {
+        self.push(FakeRigStep::Probe(result))
+    }
+
+    /// Queues one deterministic observation result.
+    pub fn queue_read(
+        &mut self,
+        result: Result<RigObservation, RigFault>,
+    ) -> Result<(), FakeRigScriptError> {
+        self.push(FakeRigStep::Read(result))
+    }
+
+    /// Reads once and checks freshness against the injected virtual clock.
+    pub fn read_fresh(
+        &mut self,
+        policy: RigFreshnessPolicy,
+    ) -> Result<(RigObservation, RigObservationAge), RigFault> {
+        let observation = self.read()?;
+        match observation.fresh_at(self.clock.sample(), policy) {
+            Ok(age) => Ok((observation, age)),
+            Err(fault) => {
+                self.fail(&fault);
+                Err(fault)
+            }
+        }
+    }
+
+    /// Returns the injected clock so tests can advance it without sleeping.
+    #[must_use]
+    pub fn clock(&self) -> &VirtualClock {
+        &self.clock
+    }
+
+    /// Returns the number of unconsumed bounded script steps.
+    #[must_use]
+    pub fn remaining_steps(&self) -> usize {
+        self.steps.len()
+    }
+
+    fn push(&mut self, step: FakeRigStep) -> Result<(), FakeRigScriptError> {
+        if self.steps.len() == MAX_FAKE_RIG_STEPS {
+            return Err(FakeRigScriptError::ScriptFull);
+        }
+        self.steps.push_back(step);
+        Ok(())
+    }
+
+    fn current_generation(&self) -> Option<RigConnectionGeneration> {
+        match self.lifecycle {
+            RigLifecycleState::Connected { generation }
+            | RigLifecycleState::Probing { generation }
+            | RigLifecycleState::Ready { generation } => Some(generation),
+            RigLifecycleState::Faulted { generation, .. } => generation,
+            RigLifecycleState::Disconnected | RigLifecycleState::Connecting => None,
+        }
+    }
+
+    fn fail(&mut self, fault: &RigFault) {
+        self.lifecycle = RigLifecycleState::Faulted {
+            generation: self.current_generation(),
+            fault: fault.kind(),
+        };
+    }
+
+    fn malformed(&mut self) -> RigFault {
+        let fault = RigFault::MalformedResponse;
+        self.fail(&fault);
+        fault
     }
 }
 
-impl RigPort for FakeRig {
-    fn read_state(&mut self) -> Result<RigState, RigFault> {
-        if let Some(fault) = self.faults.pop_front() {
-            return Err(fault);
-        }
-        Ok(self.state.clone())
+impl ReadOnlyRigPort for FakeReadOnlyRig {
+    fn lifecycle(&self) -> RigLifecycleState {
+        self.lifecycle
     }
 
-    fn apply(&mut self, command: RigCommand) -> Result<RigState, RigFault> {
-        if let Some(fault) = self.faults.pop_front() {
-            return Err(fault);
+    fn connect(&mut self, profile: &RigProfile) -> Result<RigConnectionGeneration, RigFault> {
+        self.lifecycle = RigLifecycleState::Connecting;
+        let Some(FakeRigStep::Connect(result)) = self.steps.pop_front() else {
+            return Err(self.malformed());
+        };
+        match result {
+            Ok(generation) => {
+                self.profile_revision_id = Some(profile.revision_id().clone());
+                self.lifecycle = RigLifecycleState::Connected { generation };
+                Ok(generation)
+            }
+            Err(fault) => {
+                self.fail(&fault);
+                Err(fault)
+            }
         }
-        match command {
-            RigCommand::SetDialFrequency(value) => self.state.dial_frequency = value,
-            RigCommand::SetMode(value) => self.state.mode = value,
+    }
+
+    fn probe(&mut self) -> Result<RigCapabilityReport, RigFault> {
+        let Some(generation) = self.current_generation() else {
+            return Err(RigFault::NotConnected);
+        };
+        if !matches!(self.lifecycle, RigLifecycleState::Connected { .. }) {
+            return Err(RigFault::NotConnected);
         }
-        Ok(self.state.clone())
+        self.lifecycle = RigLifecycleState::Probing { generation };
+        let Some(FakeRigStep::Probe(result)) = self.steps.pop_front() else {
+            return Err(self.malformed());
+        };
+        match result {
+            Ok(report) if report.generation() == generation => {
+                self.lifecycle = RigLifecycleState::Ready { generation };
+                Ok(report)
+            }
+            Ok(report) => {
+                let fault = RigFault::GenerationChanged {
+                    expected: generation,
+                    observed: report.generation(),
+                };
+                self.fail(&fault);
+                Err(fault)
+            }
+            Err(fault) => {
+                self.fail(&fault);
+                Err(fault)
+            }
+        }
+    }
+
+    fn read(&mut self) -> Result<RigObservation, RigFault> {
+        let RigLifecycleState::Ready { generation } = self.lifecycle else {
+            return Err(if self.current_generation().is_some() {
+                RigFault::NotProbed
+            } else {
+                RigFault::NotConnected
+            });
+        };
+        let Some(FakeRigStep::Read(result)) = self.steps.pop_front() else {
+            return Err(self.malformed());
+        };
+        match result {
+            Ok(observation)
+                if observation.provenance.connection_generation == generation
+                    && self.profile_revision_id.as_ref()
+                        == Some(&observation.profile_revision_id) =>
+            {
+                Ok(observation)
+            }
+            Ok(observation) if observation.provenance.connection_generation != generation => {
+                let fault = RigFault::GenerationChanged {
+                    expected: generation,
+                    observed: observation.provenance.connection_generation,
+                };
+                self.fail(&fault);
+                Err(fault)
+            }
+            Ok(_) => {
+                let fault = RigFault::ContradictoryReadback {
+                    field: slotpilot_operations::RigObservedField::ProfileRevision,
+                };
+                self.fail(&fault);
+                Err(fault)
+            }
+            Err(fault) => {
+                self.fail(&fault);
+                Err(fault)
+            }
+        }
     }
 }
 
@@ -192,8 +369,15 @@ mod tests {
         CaptureTimeEvidence, InputConfiguration, InputFaultKind, InputSampleFormat,
         ProcessGeneration, StreamGeneration,
     };
-    use slotpilot_domain::{DialFrequency, OperatingMode, Power};
-    use slotpilot_operations::{Clock, ClockSample, MonotonicInstant, UtcInstant, VirtualClock};
+    use slotpilot_domain::{
+        DialFrequency, DownstreamRigEndpoint, HamlibModelId, HamlibVersionExpectation,
+        RadioModulation, RadioPassband, RigVfo, RigctldMode, RigctldServiceEndpoint, SplitReadback,
+    };
+    use slotpilot_operations::{
+        ClockSample, MonotonicInstant, RigCapability, RigCapabilityEvidence, RigCapabilityStatus,
+        RigObservationFields, RigObservationProvenance, RigObservationSequence,
+        RigObservationTimestamp, RigObservedField, RigOperation, RigReadback, UtcInstant,
+    };
     use slotpilot_protocol::{
         ClassifiedFt8Message, Ft8DecodeMetadata, Ft8MessageClass, Ft8WaveformPlacement,
         PcmAmplitudePermille, PcmFormat, PcmSampleFormat, ResolvedFt8Message,
@@ -201,36 +385,204 @@ mod tests {
 
     use super::*;
 
-    fn rig_state() -> RigState {
-        RigState {
-            dial_frequency: DialFrequency::from_hz(14_074_000).unwrap(),
-            mode: OperatingMode::Ft8,
-            power: Power::from_milliwatts(5_000).unwrap(),
-            ptt_asserted: false,
+    fn virtual_clock() -> VirtualClock {
+        VirtualClock::new(ClockSample {
+            utc: UtcInstant::from_unix_millis(1_000).unwrap(),
+            monotonic: MonotonicInstant::from_millis(10),
+        })
+    }
+
+    fn rig_profile() -> RigProfile {
+        RigProfile::new(
+            "prv_01jrigprofile".parse().unwrap(),
+            DownstreamRigEndpoint::new("k4.operator.lan", 12_345).unwrap(),
+            RigctldServiceEndpoint::new("127.0.0.1", 4_532).unwrap(),
+            RigctldMode::Managed,
+            HamlibModelId::new(2_047).unwrap(),
+            HamlibVersionExpectation::new("4.7.1").unwrap(),
+            RadioModulation::DataUpperSideband,
+            RadioPassband::from_hz(3_000).unwrap(),
+        )
+        .unwrap()
+    }
+
+    fn capability_report(
+        generation: RigConnectionGeneration,
+        partial: bool,
+    ) -> RigCapabilityReport {
+        let mut evidence = vec![
+            RigCapabilityEvidence {
+                capability: RigCapability::DialFrequency,
+                status: RigCapabilityStatus::RuntimeProbed,
+            },
+            RigCapabilityEvidence {
+                capability: RigCapability::Modulation,
+                status: RigCapabilityStatus::RuntimeProbed,
+            },
+        ];
+        if partial {
+            evidence.push(RigCapabilityEvidence {
+                capability: RigCapability::Power,
+                status: RigCapabilityStatus::Unsupported,
+            });
+        }
+        RigCapabilityReport::new(generation, evidence).unwrap()
+    }
+
+    fn observation(
+        generation: RigConnectionGeneration,
+        timestamp: RigObservationTimestamp,
+    ) -> RigObservation {
+        RigObservation {
+            profile_revision_id: rig_profile().revision_id().clone(),
+            provenance: RigObservationProvenance {
+                service_instance_id: "svc_01jrigprocess".parse().unwrap(),
+                connection_generation: generation,
+                sequence: RigObservationSequence::new(1).unwrap(),
+            },
+            observed_at: timestamp,
+            fields: RigObservationFields {
+                dial_frequency: RigReadback::Observed(DialFrequency::from_hz(14_074_000).unwrap()),
+                modulation: RigReadback::Observed(RadioModulation::DataUpperSideband),
+                passband: RigReadback::Observed(RadioPassband::from_hz(3_000).unwrap()),
+                vfo: RigReadback::Observed(RigVfo::A),
+                split: RigReadback::Observed(SplitReadback::new(false, None)),
+                power: RigReadback::Unavailable,
+                ptt_asserted: RigReadback::Unsupported,
+            },
         }
     }
 
     #[test]
-    fn fake_rig_injects_every_required_failure() {
-        let mut rig = FakeRig::new(rig_state());
-        let contradictory = RigFault::ContradictoryReadback {
-            expected: rig_state(),
-            observed: RigState {
-                ptt_asserted: true,
-                ..rig_state()
+    fn fake_rig_runs_normal_partial_reconnect_and_generation_sequences() {
+        let clock = virtual_clock();
+        let mut rig = FakeReadOnlyRig::new(clock.clone());
+        let first = RigConnectionGeneration::new(1).unwrap();
+        let second = RigConnectionGeneration::new(2).unwrap();
+        rig.queue_connect(Ok(first)).unwrap();
+        rig.queue_probe(Ok(capability_report(first, true))).unwrap();
+        rig.queue_read(Ok(observation(
+            first,
+            RigObservationTimestamp::from_clock_sample(clock.sample()),
+        )))
+        .unwrap();
+        rig.queue_read(Err(RigFault::Disconnected)).unwrap();
+        rig.queue_connect(Ok(second)).unwrap();
+        rig.queue_probe(Ok(capability_report(second, false)))
+            .unwrap();
+        rig.queue_read(Ok(observation(
+            second,
+            RigObservationTimestamp::from_clock_sample(clock.sample()),
+        )))
+        .unwrap();
+
+        assert_eq!(rig.connect(&rig_profile()).unwrap(), first);
+        assert_eq!(
+            rig.probe().unwrap().status(RigCapability::Power),
+            Some(RigCapabilityStatus::Unsupported)
+        );
+        assert!(rig.read().is_ok());
+        assert_eq!(rig.read(), Err(RigFault::Disconnected));
+        assert_eq!(rig.connect(&rig_profile()).unwrap(), second);
+        assert_eq!(rig.probe().unwrap().generation(), second);
+        assert_eq!(rig.read().unwrap().provenance.connection_generation, second);
+        assert_eq!(rig.remaining_steps(), 0);
+    }
+
+    #[test]
+    fn fake_rig_injects_all_bounded_read_only_failures() {
+        let failures = [
+            RigFault::Timeout {
+                operation: RigOperation::Read,
             },
-        };
-        for fault in [
-            RigFault::Disconnected,
-            RigFault::StaleReadback,
-            contradictory,
-            RigFault::CommandRejected,
-            RigFault::UnexpectedMovement(rig_state()),
-            RigFault::PttStuck,
-        ] {
-            rig.inject(fault.clone());
-            assert_eq!(rig.read_state(), Err(fault));
+            RigFault::ContradictoryReadback {
+                field: RigObservedField::Split,
+            },
+            RigFault::Unsupported {
+                capability: RigCapability::Ptt,
+            },
+            RigFault::MalformedResponse,
+            RigFault::UnexpectedChange {
+                field: RigObservedField::DialFrequency,
+            },
+        ];
+        for fault in failures {
+            let clock = virtual_clock();
+            let generation = RigConnectionGeneration::new(1).unwrap();
+            let mut rig = FakeReadOnlyRig::new(clock);
+            rig.queue_connect(Ok(generation)).unwrap();
+            rig.queue_probe(Ok(capability_report(generation, false)))
+                .unwrap();
+            rig.queue_read(Err(fault.clone())).unwrap();
+            rig.connect(&rig_profile()).unwrap();
+            rig.probe().unwrap();
+            assert_eq!(rig.read(), Err(fault.clone()));
+            assert_eq!(
+                rig.lifecycle(),
+                RigLifecycleState::Faulted {
+                    generation: Some(generation),
+                    fault: fault.kind(),
+                }
+            );
         }
+    }
+
+    #[test]
+    fn fake_rig_checks_stale_time_and_generation_without_sleeping() {
+        let clock = virtual_clock();
+        let first = RigConnectionGeneration::new(1).unwrap();
+        let second = RigConnectionGeneration::new(2).unwrap();
+        let mut stale = FakeReadOnlyRig::new(clock.clone());
+        stale.queue_connect(Ok(first)).unwrap();
+        stale
+            .queue_probe(Ok(capability_report(first, false)))
+            .unwrap();
+        stale
+            .queue_read(Ok(observation(
+                first,
+                RigObservationTimestamp::from_clock_sample(clock.sample()),
+            )))
+            .unwrap();
+        stale.connect(&rig_profile()).unwrap();
+        stale.probe().unwrap();
+        clock.advance(101).unwrap();
+        assert!(matches!(
+            stale.read_fresh(RigFreshnessPolicy::new(100, 5).unwrap()),
+            Err(RigFault::Stale { .. })
+        ));
+
+        let mut changed = FakeReadOnlyRig::new(virtual_clock());
+        changed.queue_connect(Ok(first)).unwrap();
+        changed
+            .queue_probe(Ok(capability_report(first, false)))
+            .unwrap();
+        changed
+            .queue_read(Ok(observation(
+                second,
+                RigObservationTimestamp::new(1_000, 10).unwrap(),
+            )))
+            .unwrap();
+        changed.connect(&rig_profile()).unwrap();
+        changed.probe().unwrap();
+        assert_eq!(
+            changed.read(),
+            Err(RigFault::GenerationChanged {
+                expected: first,
+                observed: second,
+            })
+        );
+    }
+
+    #[test]
+    fn fake_rig_script_has_a_fixed_bound() {
+        let mut rig = FakeReadOnlyRig::new(virtual_clock());
+        for _ in 0..MAX_FAKE_RIG_STEPS {
+            rig.queue_connect(Err(RigFault::Disconnected)).unwrap();
+        }
+        assert_eq!(
+            rig.queue_connect(Err(RigFault::Disconnected)),
+            Err(FakeRigScriptError::ScriptFull)
+        );
     }
 
     #[test]

@@ -39,6 +39,7 @@ slotpilot-domain
 slotpilot-ipc
 slotpilot-operations
 slotpilot-protocol
+slotpilot-rig
 slotpilot-storage
 slotpilot-testkit
 slotpilotd"
@@ -67,6 +68,8 @@ assert_workspace_dependencies "slotpilot-protocol" "slotpilot-domain"
 assert_workspace_dependencies "slotpilot-operations" "slotpilot-audio
 slotpilot-domain
 slotpilot-protocol"
+assert_workspace_dependencies "slotpilot-rig" "slotpilot-domain
+slotpilot-operations"
 assert_workspace_dependencies "slotpilot-storage" "slotpilot-audio
 slotpilot-domain
 slotpilot-protocol"
@@ -410,5 +413,23 @@ if find \
     'std::process|std::net|std::fs|Command::new|mfsk_core|hamlib|rigctld|serialport' \
     {} +; then
   echo "owned receive-audio contracts gained a process, I/O, device, protocol, or rig path" >&2
+  exit 1
+fi
+
+if find \
+  crates/rig/src \
+  -type f \
+  -name '*.rs' \
+  -exec grep -Ein \
+    'use std::(process|net|fs)|Command::new|extern crate|fn (apply|set_|raw_|ptt|unkey)' \
+    {} +; then
+  echo "Phase 3 rig boundary gained an adapter, mutation, PTT, output, or transmit path" >&2
+  exit 1
+fi
+
+if grep -En \
+  'fn (apply|set_|raw_|ptt|unkey)|RigCommand|TransmitSupervisor' \
+  crates/operations/src/rig.rs; then
+  echo "read-only rig consumer contract gained a mutation or transmit method" >&2
   exit 1
 fi

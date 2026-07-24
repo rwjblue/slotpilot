@@ -32,7 +32,8 @@ requirements.
 
 **Phase 0: workspace and contracts — complete. Phase 1: offline FT8 protocol
 harness — complete. Phase 2 receive-only software — complete; human RF-free
-macOS input validation remains open.**
+macOS input validation remains open. Phase 3 read-only rig contract work has
+begun; no rig adapter exists yet.**
 
 The repository contains the no-op daemon/CLI handshake, typed contracts,
 deterministic test seams, local IPC, initial storage, and complete CI
@@ -52,7 +53,11 @@ bounded receive-window context, diagnostics, and exact owned FT8
 classifications atomically. The daemon now composes exact receive input,
 clock-gated live decode, and atomic ordered decode events behind API version 2;
 the CLI has human, JSON, and JSONL receive routes. There is still no audio
-output, radio, logging, desktop, WSPR, or transmit implementation.
+output, live radio adapter, logging, desktop, WSPR, or transmit implementation.
+The first Phase 3 slice adds explicit versioned read-only rig profile values,
+distinct downstream CAT and `rigctld` service endpoints, checked observation
+and capability evidence, a setter-free consumer port, bounded virtual-time
+fakes, and a reserved empty rig-infrastructure crate.
 
 ## Phase 0 — workspace and contracts
 

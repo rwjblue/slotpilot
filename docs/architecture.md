@@ -63,7 +63,8 @@ apps/
 ```
 
 The workspace contains `domain`, `api`, `ipc`, `protocol`, `audio`,
-`operations`, `storage`, `testkit`, `slotpilotd`, and `slotpilot`. Their
+`operations`, the reserved adapter boundary `rig`, `storage`, `testkit`,
+`slotpilotd`, and `slotpilot`. Their
 current allowed internal dependency graph is:
 
 ```text
@@ -83,6 +84,8 @@ protocol ─────> domain
 audio
 operations ───> audio
 operations ───> protocol ───> domain
+rig ──────────> operations
+rig ──────────> domain
 testkit ──────> audio
 testkit ──────> operations ──> protocol ──> domain
 storage ─────> audio
@@ -92,9 +95,12 @@ storage ───────────────────> domain
 
 `domain` and the owned `audio` contract have no internal workspace dependency.
 `protocol` may depend on `domain`; `operations` may depend on `audio`,
-`protocol`, and `domain`. Storage may depend on owned `audio`, `protocol`, and
-`domain` values solely to validate and reconstruct durable records; it cannot
-import private device/FFT/protocol dependencies or operations/API types.
+`protocol`, and `domain`. The reserved `rig` infrastructure crate may depend
+only on the consumer-owned operations port and domain profile values; Phase
+3.1 provides no adapter implementation. Storage may depend on owned `audio`,
+`protocol`, and `domain` values solely to validate and reconstruct durable
+records; it cannot import private device/FFT/protocol dependencies or
+operations/API types.
 `api` may depend on `domain`; the daemon composition shell may depend on
 `audio`, `operations`, `protocol`, and `storage`, while daemon and CLI may both
 depend on `api` and `ipc`. The executable `mise run
@@ -302,7 +308,37 @@ All time-dependent operations receive an injected clock abstraction. Tests must 
 
 ## Rig boundary
 
-The first backend uses one persistent connection to `rigctld`. It probes capabilities instead of assuming that split, PTT, mode, filter, power, or meter operations exist.
+Phase 3.1 defines a consumer-owned `ReadOnlyRigPort` with only lifecycle,
+connect, capability-probe, and observation methods. The retired Phase 0
+setter-bearing seam is no longer exposed. The production-facing contract has
+no apply/set/raw-command/PTT/unkey method and grants no output, scheduling, or
+transmit authority.
+
+Owned observations keep exact integer frequency, radio modulation, integer
+passband, VFO, split, optional power, and optional PTT evidence. Every field is
+either an exact value, unsupported, unavailable, or stale/unverified, so an
+absent power/PTT getter cannot become zero or false. Provenance includes the
+daemon service identity, positive connection generation, positive observation
+sequence, immutable profile revision, and paired UTC/monotonic time. Freshness
+checks retain both ages, reject timeline regression or contradictory mapping,
+and admit state only within an explicit bounded monotonic age.
+
+Capability and profile-validation evidence distinguishes backend claim,
+successful runtime probe, later human physical verification, unsupported,
+unavailable, and stale/unverified status. Backend claims alone do not satisfy a
+required read operation.
+
+The designated downstream radio endpoint is the explicit operator-configured
+Elecraft K4 Ethernet CAT `host:port`, using Hamlib model 2047. It is a distinct
+domain type from the explicit `rigctld` service endpoint. Managed service
+profiles accept only a loopback IP literal; the later process lifecycle must
+bind there and force `--ptt-type=NONE`. No K4 host or CAT port is discovered,
+inferred, hardcoded, defaulted, or substituted.
+
+The first backend will use one persistent connection to `rigctld`. It probes
+capabilities instead of assuming that split, PTT, mode, filter, power, or meter
+operations exist. The reserved `slotpilot-rig` crate currently contains no
+network, process, serial, Hamlib, or physical-radio adapter.
 
 Rig profiles distinguish:
 

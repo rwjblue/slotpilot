@@ -8,6 +8,7 @@ members = [
     "crates/ipc",
     "crates/operations",
     "crates/protocol",
+    "crates/rig",
     "crates/storage",
     "crates/testkit",
 ]
@@ -39,6 +40,7 @@ slotpilot-domain = { path = "crates/domain" }
 slotpilot-ipc = { path = "crates/ipc" }
 slotpilot-operations = { path = "crates/operations" }
 slotpilot-protocol = { path = "crates/protocol" }
+slotpilot-rig = { path = "crates/rig" }
 slotpilot-storage = { path = "crates/storage" }
 slotpilot-testkit = { path = "crates/testkit" }
 thiserror = "2.0.19"

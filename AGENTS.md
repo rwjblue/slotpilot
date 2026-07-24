@@ -99,7 +99,13 @@ deterministic time and hardware test seams, and the complete repository gate.
 SlotPilot-owned message outcomes, an exact private dependency adapter, reviewed
 fixtures, deterministic in-memory PCM synthesis, bounded RIFF/WAVE parsing,
 and reproducible static-recording decode. There is deliberately no WSPR
-protocol, audio output, rig-control, logging, transmit, or desktop behavior.
+protocol, audio output, live rig adapter, logging, transmit, or desktop behavior.
+Phase 3 has begun with infrastructure-independent, version-identified
+read-only rig profiles, exact and structurally distinct downstream CAT and
+`rigctld` service endpoints, capability/observation/validation vocabulary, a
+consumer-owned setter-free port, and bounded deterministic fakes. The reserved
+`slotpilot-rig` crate contains no process, network, serial, Hamlib, or hardware
+adapter yet.
 Ordinary tests open no physical input; issue #36 is the separate
 human-required validation boundary. Do not create broad speculative
 implementations in an orientation task.
